@@ -1,0 +1,31 @@
+ADOFAI 谱面生成器（ADOFAI Chart Generator）
+Copyright 2026 adocharter
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+--------------------------------------------------------------------------------
+第三方组件（随包分发，各有各的许可；全文见 LICENSES/，索引见 THIRD-PARTY.md）
+--------------------------------------------------------------------------------
+
+* Electron / Chromium  — MIT / BSD-3-Clause（见 LICENSE.electron.txt、LICENSES.chromium.html）
+* Python 运行时         — PSF License
+* numpy / scipy / numba / llvmlite — BSD-3-Clause / BSD-2-Clause
+* librosa / soundfile / audioread / pooch / soxr — ISC / MIT / BSD-3-Clause
+* three.js（内嵌播放器）— MIT（LICENSES/three-MIT.txt）
+* ADOFAI 判定/时间模型（vendor/adofai_timemodel）— MIT（LICENSES/adofai_timemodel-MIT.txt）
+* ADOFAI 资源与数据格式 — BSD-3-Clause（LICENSES/adofai-BSD-3-Clause.txt）
+* regenerator-runtime   — MIT（LICENSES/regenerator-runtime-MIT.txt）
+
+**未随包分发**：`beat_data_generator`（GPL-3.0 独立宿主程序）—— 它由用户自行安装，
+本程序只通过插件与之通信，二进制里**不含**它。
+
+--------------------------------------------------------------------------------
+说明
+--------------------------------------------------------------------------------
+
+本程序**不包含** ADOFAI 游戏本体、也不分发其美术资源与音频；它只生成 `.adofai`
+谱面文件（纯文本 JSON），由用户在自己的游戏里打开。
+
+「A Dance of Fire and Ice」是 7th Beat Games 的商标。本项目与其**无隶属关系**，
+也未获其背书。

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "source_audio": "Automaton Waltz - Plum.wav",
+  "duration_sec": 202.378,
+  "sample_rate": 22050,
+  "hop_ms": 5.0,
+  "separation_model": "htdemucs_6s",
+  "has_vocals": false,
+  "bpm_hint": null,
+  "stems": {
+    "melody": {
+      "source": "other",
+      "method": "onsetnet",
+      "model": "onset_net_melody.pt",
+      "onsets_sec": [
+        1.0,
+        1.0,
+        -0.5,
+        null,
+        "abc",
+        2.0,
+        NaN,
+        3.0
+      ],
+      "onsets_frame": [
+        200,
+        200,
+        -100,
+        null,
+        null,
+        400,
+        null,
+        600
+      ]
+    },
+    "drums": {
+      "source": "drums",
+      "method": "spectral_flux",
+      "onsets_sec": [
+        1.0,
+        1.6,
+        2.2
+      ],
+      "onsets_frame": [
+        200,
+        320,
+        440
+      ]
+    }
+  }
+}

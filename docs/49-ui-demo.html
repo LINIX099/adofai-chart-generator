@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<!-- ==========================================================================
+  docs/49 UI 重做 · 可点原型（demo）
+  --------------------------------------------------------------------------
+  ★ 这是**看布局用的静态原型**：数据是假的，没有连 sidecar，点了不会真的出谱。
+  ★ 目的：让你在动手写 1800 行前端之前，先看「三区 + 大直线浮窗 + 报告带 + 参数分层」
+     这套信息架构顺不顺眼。
+  ★ 已经能真玩的：拖分隔条 / 拖浮窗 / 拖段边界 / 点段选中 / 滚轮缩放 / 搜索参数 /
+     抽夹高级项 / 切预设 / 点报告数字看明细 / 切密度 / 「恢复默认布局」。
+  ★ 布局**脱手即存**（localStorage，模拟 docs/49 §5.4 那个 ui-layout.json）。
+========================================================================== -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:" />
+<title>UI 重做原型 · ADOFAI 谱面生成器</title>
+<style>
+:root{
+  --bg:#0e1319; --panel:#14181e; --panel2:#171d24; --line:#22303c; --line2:#2b3742;
+  --ink:#d6dee6; --ink2:#a9b6c2; --ink3:#7d8894; --ink4:#5b6874;
+  --accent:#2f5d80; --accent2:#5fa8e0; --gold:#d29922; --ok:#3fb950; --bad:#f85149;
+  --row:26px; --pad:8px; --font:13px;
+  --c-audio:#3a6f96; --c-skel:#8a5cd2; --c-steer:#2f8f6a; --c-cam:#c07a2b;
+}
+:root[data-density="compact"]{ --row:22px; --pad:5px; --font:12px; }
+:root[data-density="loose"]{ --row:31px; --pad:11px; --font:14px; }
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:var(--font)/1.45 "Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+     color:var(--ink);background:var(--bg);overflow:hidden}
+button,input,select{font-family:inherit;font-size:12px}
+button{background:#22303c;color:var(--ink);border:1px solid var(--line2);
+       border-radius:4px;padding:5px 10px;cursor:pointer}
+button:hover{background:#2b3a47}
+button.primary{background:var(--accent);border-color:#3a6f96}
+button.primary:hover{background:#3a6f96}
+button.ghost{background:transparent}
+select,input[type=number],input[type=text]{background:#0e1319;color:var(--ink);
+  border:1px solid var(--line2);border-radius:4px;padding:3px 6px;height:24px;min-width:0}
+.hint{color:var(--ink3);font-size:11px}
+.grow{flex:1}
+
+/* ───────────── 框架 ───────────── */
+#app{display:flex;flex-direction:column;height:100%}
+#top{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--panel);
+     border-bottom:1px solid var(--line);flex:0 0 auto}
+#top .song{font-weight:600}
+.src{background:#1b232c;border:1px solid var(--line2);border-radius:10px;
+     padding:1px 8px;font-size:11px;color:var(--ink2)}
+#work{flex:1;display:flex;min-height:0}
+#left,#right{background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+#left{border-right:1px solid var(--line)}
+#right{border-left:1px solid var(--line)}
+
+/* ───────────── ★ 停靠位（dock）：四边各一个槽，pane 可以搬到任意一边或变浮窗 ───────────── */
+.dock{display:flex;flex:0 0 auto;overflow:hidden}
+#dock-left,#dock-right{flex-direction:column;min-width:0}
+#dock-top,#dock-bottom{flex-direction:row;min-height:0}
+.dock.empty{display:none}
+.dock.drop-target{outline:2px solid var(--accent2);outline-offset:-3px;
+  background:rgba(47,93,128,.22)}
+/* 停靠中的 pane：撑满槽、去掉浮窗那套定位/阴影 */
+.pane.docked{position:relative;flex:1;min-height:0;min-width:0;border-radius:0;
+  box-shadow:none;border:none;background:var(--panel);z-index:auto}
+/* 浮动中的 pane：复用浮窗外观 */
+.pane.floating{position:fixed}
+#dock-top .pane,#dock-bottom .pane{border-top:1px solid var(--line)}
+#dock-left .pane,#dock-right .pane{height:100%}
+/* 拖动时的落点提示条 */
+#dzhint{position:fixed;inset:0;z-index:58;display:none;pointer-events:none}
+#dzhint.on{display:block}
+#dzhint i{position:absolute;background:rgba(47,93,128,.25);border:2px dashed var(--accent2);
+  border-radius:4px;display:none}
+#dzhint i.on{display:block}
+#dzhint i[data-side=left]{left:0;top:0;bottom:0;width:26%}
+#dzhint i[data-side=right]{right:0;top:0;bottom:0;width:26%}
+#dzhint i[data-side=top]{left:0;right:0;top:0;height:22%}
+#dzhint i[data-side=bottom]{left:0;right:0;bottom:0;height:22%}
+#dzhint i[data-side=float]{left:30%;right:30%;top:26%;bottom:26%;
+  background:rgba(210,153,34,.12);border-color:var(--gold)}
+.pane.dragging{opacity:.85;outline:2px solid var(--accent2)}
+.zhead{padding:7px 9px;border-bottom:1px solid var(--line);display:flex;
+       align-items:center;gap:6px;font-weight:600;color:var(--ink2);flex:0 0 auto}
+.zbody{flex:1;overflow-y:auto;min-height:0;padding:var(--pad)}
+.split{flex:0 0 5px;cursor:col-resize;background:transparent}
+.split:hover,.split.on{background:var(--accent)}
+#center{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;
+        background:#0b0f14}
+
+/* ───────────── 段列表 / 轨列表 ───────────── */
+.sect{color:var(--ink3);font-size:11px;margin:2px 0 5px;display:flex;gap:6px;
+      align-items:center}
+.card{border:1px solid var(--line2);border-radius:5px;background:var(--panel2);
+      padding:6px 7px;margin-bottom:6px;font-size:11.5px;color:var(--ink2);
+      line-height:1.6}
+.rowitem{display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:4px;
+         cursor:pointer;border:1px solid transparent}
+.rowitem:hover{background:#1b232c}
+.rowitem.sel{background:#1d2937;border-color:var(--accent2)}
+.dot{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+.kindtag{font-size:10px;color:var(--ink3);margin-left:auto;font-family:Consolas,monospace}
+.tk{display:flex;gap:6px;align-items:center;padding:2px 4px;border-radius:3px}
+.tk:hover{background:#1b232c}
+.tk .t{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* ───────────── 时间轴 ───────────── */
+/* ───────────── 主区：**视图预览**（上，吃满）+ 时间轴带（下，可拖高） ───────────── */
+#vtabs{display:flex;align-items:center;gap:4px;padding:4px 9px;background:var(--panel);
+       border-bottom:1px solid var(--line);flex:0 0 auto}
+.vtab{background:transparent;border:1px solid transparent;border-radius:4px;padding:3px 9px;font-size:12px}
+.vtab.active{background:#22303c;border-color:var(--accent);color:#eaf4ff}
+#pvwrap{flex:1;min-height:0;position:relative;
+        background:radial-gradient(circle at 50% 45%,#101820,#0a0e13 70%)}
+#pv{width:100%;height:100%;display:block}
+#tlwrap{flex:0 0 auto;position:relative;min-height:0;border-top:1px solid var(--line)}
+#tl{width:100%;height:100%;display:block;cursor:crosshair}
+#ov{height:54px;background:var(--panel);border-top:1px solid var(--line);display:block;
+    width:100%;cursor:pointer}
+#tlbar{display:flex;align-items:center;gap:8px;padding:4px 9px;background:var(--panel);
+       border-bottom:1px solid var(--line);flex:0 0 auto}
+#playbtn{width:82px}
+#tlabel{font-family:Consolas,monospace;color:var(--ink2);min-width:120px}
+
+/* ───────────── 浮窗 ───────────── */
+.float{position:absolute;background:rgba(20,24,30,.97);border:1px solid var(--line2);
+  border-radius:6px;box-shadow:0 10px 26px rgba(0,0,0,.5);z-index:9;
+  display:flex;flex-direction:column;min-width:220px;min-height:90px}
+.float .fhead{display:flex;align-items:center;gap:6px;padding:5px 8px;
+  background:#1b232c;border-bottom:1px solid var(--line);cursor:move;border-radius:5px 5px 0 0;
+  font-size:12px;font-weight:600;color:var(--ink2);user-select:none}
+.float .fbody{padding:7px 8px;overflow:auto;flex:1}
+.float .grip{position:absolute;right:0;bottom:0;width:14px;height:14px;cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 45%,var(--ink4) 45%,var(--ink4) 55%,transparent 55%)}
+.float.collapsed .fbody,.float.collapsed .grip{display:none}
+.float .x{cursor:pointer;color:var(--ink3);padding:0 2px}
+.float .x:hover{color:var(--bad)}
+.fld{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.fld>label{flex:0 0 96px;color:var(--ink2);font-size:11.5px}
+.fld .ctl{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
+.fld .ctl>*{flex:1}
+.mono{font-family:Consolas,monospace}
+
+/* ───────────── 报告带 ───────────── */
+#report{background:#10161d;border-top:1px solid var(--line);padding:6px 10px;
+        flex:0 0 auto}
+.chips{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.chip{background:#1b232c;border:1px solid var(--line2);border-radius:12px;
+      padding:2px 10px;font-size:11.5px;color:var(--ink2);cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--accent2);color:#eaf4ff}
+.chip b{color:#eaf4ff}
+.chip.warn{border-color:#6b4d12;color:var(--gold)}
+.chip.warn b{color:var(--gold)}
+.chip.ok b{color:var(--ok)}
+#detail{margin-top:6px;max-height:120px;overflow:auto;border:1px solid var(--line2);
+        border-radius:5px;background:#0d1218;padding:6px 8px;font-size:11.5px;
+        color:var(--ink2);line-height:1.7;display:none}
+#detail.on{display:block}
+#detail .k{color:var(--gold)}
+
+/* ───────────── 检查器 ───────────── */
+.pgrp{border-bottom:1px solid #1b232c}
+.pgrp>h4{margin:0;padding:6px 2px;font-size:12px;color:var(--ink2);cursor:pointer;
+         display:flex;gap:6px;align-items:center;user-select:none}
+.pgrp>h4 .caret{color:var(--ink4);font-size:10px;width:9px}
+.pgrp>.pbody{padding:0 0 8px;display:flex;flex-direction:column;gap:4px}
+.pgrp.collapsed>.pbody{display:none}
+.tier{font-size:10px;color:var(--ink4);border:1px solid var(--line2);border-radius:8px;
+      padding:0 5px;margin-left:auto}
+#psearch{margin-bottom:7px}
+.presets{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.presets button{padding:3px 8px;font-size:11px}
+.presets button.on{background:var(--accent);border-color:var(--accent2)}
+#toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);
+  background:#1d2937;border:1px solid var(--accent2);border-radius:6px;padding:7px 13px;
+  font-size:12px;color:#eaf4ff;opacity:0;transition:opacity .18s;pointer-events:none;z-index:30}
+#toast.on{opacity:1}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--ink3);
+        padding:3px 9px;background:var(--panel);border-bottom:1px solid var(--line)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+
+/* ───────────── ★ Shift+M 布局编辑模式 ───────────── */
+body.layoutmode .pane{outline:2px dashed var(--accent2);outline-offset:-3px;cursor:move}
+body.layoutmode .pane .zhead,body.layoutmode .pane .fhead{cursor:move}
+/* ★★ 用户 2026-10：「（移动模式）**不响应任何点击**」
+   ⇒ 除「拖块 / 停靠 / 退出」以外，全 UI 一律停止响应：
+      · pane 内所有控件、时间轴、全曲条、报告数字、浮窗的 ×/–、顶栏按钮 全部 pointer-events:none
+      · 于是点击会**穿透到 pane 本身** ⇒ 正好变成「拖整块 / 拖去停靠」 */
+body.layoutmode .pane *{pointer-events:none}
+body.layoutmode #tl,body.layoutmode #ov,
+body.layoutmode #tlbar *,body.layoutmode .legend *{pointer-events:none}
+body.layoutmode #top > *:not(#btn-layout){pointer-events:none}
+/* 冻结的观感：内容变暗 + 去饱和（一眼看出"现在点不了"） */
+body.layoutmode .zbody,body.layoutmode .fbody,body.layoutmode .chips,
+body.layoutmode #tlbar,body.layoutmode .legend{opacity:.45;filter:grayscale(.4)}
+body.layoutmode #tlwrap,body.layoutmode #ov{opacity:.45;filter:grayscale(.45)}
+body.layoutmode #btn-layout{outline:2px solid var(--accent2)}
+#lmbanner{position:fixed;right:14px;top:46px;z-index:60;
+  background:#1d2937;border:1px solid var(--accent2);border-radius:6px;padding:4px 10px;
+  font-size:11.5px;color:#eaf4ff;display:none;white-space:nowrap;align-items:center;gap:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,.45)}
+#lmbanner.on{display:flex}
+#lmbanner kbd{background:#0e1319;border:1px solid var(--line2);border-radius:3px;
+  padding:0 4px;font-family:Consolas,monospace}
+#lmbanner .frozen{color:var(--gold)}
+#lmhud{position:fixed;right:14px;bottom:62px;z-index:60;background:rgba(13,17,23,.92);
+  border:1px solid var(--line2);border-radius:5px;padding:5px 9px;max-width:330px;
+  font:11px/1.7 Consolas,monospace;color:#b9c6d2;display:none;white-space:pre-line}
+body.layoutmode #lmhud{display:block}
+#lmhud b{color:#eaf4ff}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="top">
+    <span class="song">double-press demo</span>
+    <span class="src">来源：MIDI</span>
+    <span class="hint" id="fmeta">480ppqn · 63.9s · 4 轨</span>
+    <span class="grow"></span>
+    <span class="hint">预设</span>
+    <select id="preset">
+      <option>默认</option><option>满直线</option>
+      <option>直拟合·时序优先</option><option>手工打磨</option>
+    </select>
+    <span class="hint">密度</span>
+    <select id="density">
+      <option value="compact">紧凑</option>
+      <option value="normal" selected>标准</option>
+      <option value="loose">宽松</option>
+    </select>
+    <button id="btn-layout" title="Shift+M：所有 UI 块可拖、滚轮缩放">✥ 移动模式</button>
+    <button id="btn-reset-layout" class="ghost" title="把所有区域 / 浮窗恢复默认">恢复默认布局</button>
+    <button id="btn-rebuild" class="primary">▶ 重新生成</button>
+    <button id="btn-export">导出 ▾</button>
+  </div>
+
+  <!-- ★ 停靠位（用户 2026-10：「左右的栏目、停靠区都想怎么拖就怎么拖」）
+       四个槽各放一个 pane；空槽自动收起。拖 pane 到边缘就停靠，拖到中间就浮动。 -->
+  <div id="dock-top" class="dock empty" data-dock="top"></div>
+
+  <div id="work">
+    <div id="dock-left" class="dock" data-dock="left">
+    <div id="left" class="pane" data-pane="left" style="width:330px">
+      <div class="zhead">⣿ 来源与段 <span class="grow"></span><span class="hint">拖动=移走</span></div>
+      <div class="zbody">
+        <div class="card">
+          <b style="color:#eaf4ff">doublepress_demo_120.mid</b><br>
+          4 轨 · 629 音 · 63.9s · bpm 120<br>
+          引擎：最优化（模板/三连音/雪花）· 网格 1/6 拍
+        </div>
+        <div class="sect">段（时间轴可拖边界）<span class="grow"></span>
+          <button class="ghost" style="padding:1px 6px;font-size:11px">+ 在播放头加段</button></div>
+        <div id="seglist"></div>
+        <div class="sect" style="margin-top:8px">音轨（勾哪几条采哪几条）</div>
+        <div id="tracklist"></div>
+      </div>
+    </div>
+    </div>
+
+    <div class="split" data-split="left"></div>
+
+    <div id="center">
+      <!-- ★ 主区 = **视图预览**（4 个视图切换）；时间轴是它下面的一条**带**
+           用户 2026-10：「这样的东西 是拿来放轨道预览的地方吗」
+           ⇒ 对。那块空白不该空着：它是预览区；时间轴的信息密度在**水平方向**，
+             竖着给 ~220px 就够（不够可以拖大）。 -->
+      <div id="vtabs">
+        <button class="vtab active" data-view="chart">★ 谱面预览</button>
+        <button class="vtab" data-view="roll">钢琴卷帘</button>
+        <button class="vtab" data-view="path">谱面路径（验打结）</button>
+        <button class="vtab" data-view="falling">4K 下落式（验采音）</button>
+        <span class="grow"></span>
+        <span class="hint" id="vname"></span>
+      </div>
+      <div id="pvwrap"><canvas id="pv"></canvas></div>
+
+      <div class="split" data-split="tl" style="cursor:row-resize;flex:0 0 5px"
+           title="拖我 = 改时间轴高度"></div>
+
+      <div class="legend">
+        <span><i style="background:var(--c-audio)"></i>音轨段</span>
+        <span><i style="background:var(--c-skel)"></i>采bpm 骨架</span>
+        <span><i style="background:var(--c-steer)"></i>走向（方案·待定）</span>
+        <span><i style="background:var(--c-cam)"></i>镜头（口径挂起）</span>
+        <span><i style="background:#d29922"></i>双押</span>
+        <span><i style="background:#eaf4ff"></i>三押（加粗双层）</span>
+      </div>
+      <div id="tlwrap"><canvas id="tl"></canvas></div>
+      <div id="tlbar">
+        <button id="playbtn">▶ 播放</button>
+        <button id="btn-lanes" title="泳道 = 分层看时间关系（多押/骨架/走向/镜头）。关掉就只剩「段 + 标记 + 播放头」，高度也只给一条">泳道 ✓</button>
+        <span id="tlabel" class="mono">0:00.00 / 1:03.90</span>
+        <span class="hint">滚轮=缩放 · 中键拖动=平移 · 拖段边界=改时间 · 点段=选中</span>
+        <span class="grow"></span>
+        <span class="hint" id="zoomlabel">×1.0</span>
+      </div>
+      <canvas id="ov"></canvas>
+
+      <!-- ★ 大直线浮窗（docs/49 §5.3）：可拖、可缩、可折叠、脱手即存 -->
+      <div class="float pane" id="fl-xk" data-pane="flx" style="left:120px;top:40px;width:340px;height:210px">
+        <div class="fhead"><span draggable="false">大直线（采bpm）</span>
+          <span class="grow"></span>
+          <span class="hint" id="xk-mini">cbpm 1000</span>
+          <span class="x" data-act="collapse" title="折叠">–</span>
+          <span class="x" data-act="close" title="关掉（内容回左栏）">×</span>
+        </div>
+        <div class="fbody">
+          <div class="fld"><label>采bpm</label><div class="ctl">
+            <select id="xk_base"><option value="0">关</option><option value="2">2</option>
+            <option value="4" selected>4</option><option value="8">8</option></select></div></div>
+          <div class="fld"><label>tbpm</label><div class="ctl">
+            <input type="number" id="xk_tbpm" value="250"><span class="hint">0=没填</span></div></div>
+          <div class="card mono" style="margin:6px 0 4px">
+            cbpm = 250 × 4 = <b style="color:#eaf4ff">1000</b> · 砖长
+            <b style="color:#eaf4ff">60.000ms</b> · 全曲 1065 块砖
+          </div>
+          <div class="hint" style="margin-bottom:3px">区间（框外仍按主轨采）</div>
+          <div class="card mono" style="margin:0 0 4px">全曲 0.00s → 63.89s</div>
+          <div class="hint">⭐ 全曲接管 ⇒ ② 主轨本组不参与采音</div>
+        </div>
+        <div class="grip"></div>
+      </div>
+
+      <div id="toast"></div>
+    </div>
+
+    <div class="split" data-split="right"></div>
+
+    <div id="dock-right" class="dock" data-dock="right">
+    <div id="right" class="pane" data-pane="right" style="width:340px">
+      <div class="zhead">⣿ 检查器 <span class="grow"></span><span class="hint" id="selname">未选中</span></div>
+      <div class="zbody">
+        <input type="text" id="psearch" placeholder="搜索参数（中文名 / key，Ctrl+P）" />
+        <div class="presets" id="presets"></div>
+        <div id="params"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div class="split" data-split="bottom" style="cursor:row-resize;flex:0 0 5px"></div>
+
+  <div id="dock-bottom" class="dock" data-dock="bottom">
+  <div id="report" class="pane" data-pane="report">
+    <div class="zhead" style="padding:3px 9px">⣿ 报告 / 警告
+      <span class="grow"></span><span class="hint">点数字看明细 · 拖动=移走</span></div>
+    <div class="chips">
+      <span class="chip" data-d="dp3">三押 <b>128</b></span>
+      <span class="chip warn" data-d="dp4">跳过四押 <b>67</b></span>
+      <span class="chip ok" data-d="lost">双押丢 <b>0</b></span>
+      <span class="chip" data-d="sp">调速落双押第一格 <b>6</b></span>
+      <span class="chip" data-d="straight">直线率 <b>39%</b></span>
+      <span class="chip" data-d="setspeed">SetSpeed <b>41</b></span>
+      <span class="chip" data-d="timing">时序 max <b>0.0ms</b></span>
+      <span class="chip warn" data-d="warn">⚠ 警告 <b>3</b></span>
+    </div>
+    <div id="detail"></div>
+  </div>
+  </div>
+</div>
+
+<div id="lmbanner">
+  ✥ <b>移动模式</b> <span class="frozen">· 内容已冻结（不响应任何点击）</span>
+  <button id="lm-exit" style="padding:2px 9px">退出</button>
+</div>
+<div id="lmhud">—</div>
+
+<script>
+/* ============================================================ 假数据 */
+const DUR = 63890;
+const SEGS = [
+  {id:1, t0:0,     t1:8000,  kind:'audio',  label:'前奏',       props:{tracks:[2], role:'main'}},
+  {id:2, t0:8000,  t1:32000, kind:'skeleton',label:'高潮·大直线', props:{n:4, tbpm:250}},
+  {id:3, t0:32000, t1:44000, kind:'audio',  label:'双押段',     props:{tracks:[2], role:'main'}},
+  {id:4, t0:44000, t1:56000, kind:'steer',  label:'转向（待定）',props:{dir:'right', every:4}},
+  {id:5, t0:56000, t1:63890, kind:'camera', label:'镜头·推近（挂起）',props:{zoom:1.4, ease:'in'}},
+];
+const KIND_COLOR = {audio:'var(--c-audio)', skeleton:'var(--c-skel)',
+                    steer:'var(--c-steer)', camera:'var(--c-cam)', ignore:'#5b6874'};
+const KIND_HEX = {audio:'#3a6f96', skeleton:'#8a5cd2', steer:'#2f8f6a',
+                  camera:'#c07a2b', ignore:'#5b6874'};
+const TRACKS = [
+  {i:0, name:'trk0 (空)', n:0, on:false},
+  {i:1, name:'trk1 metronome', n:146, on:false, dp:true},
+  {i:2, name:'trk2 melody', n:328, on:true},
+  {i:3, name:'trk3 accent-bell', n:155, on:false},
+];
+// 双押点：128 个（其中 3 押用双层画）
+const DP = [];
+for (let i=0;i<128;i++) DP.push({t:500+i*500, triple:i%3===0});
+// 骨架砖：只在段 2 里显示
+// 走向拐角 / 镜头：只为看形状
+const STEER = [46000, 49000, 52000];
+const CAMS = [{t0:56000,t1:61000,tag:'推近 1.0→1.4'},{t0:61000,t1:63890,tag:'缓出'}];
+
+const PARAMS = [
+  {k:'fit_mode',   g:'求解',   name:'求解方式',       t:'common', type:'select',
+   opts:['solve:最优化（原路）','direct:直拟合'], v:'solve'},
+  {k:'base_bpm',   g:'求解',   name:'基准 BPM',       t:'common', type:'num', v:240, auto:true},
+  {k:'travel_min', g:'求解',   name:'最小角度',       t:'common', type:'num', v:20, unit:'°'},
+  {k:'straight_preset',g:'求解',name:'直线优先',      t:'common', type:'select',
+   opts:['0:少','1:平衡','2:多'], v:'1'},
+  {k:'use_templates',g:'求解', name:'节奏型模板',     t:'common', type:'check', v:true},
+  {k:'use_pause',  g:'求解',   name:'长休止用等待拍', t:'common', type:'check', v:true},
+  {k:'use_snowflake',g:'求解', name:'雪花（魔法阵）', t:'common', type:'check', v:false},
+  {k:'dp_mode',    g:'双押',   name:'双押写法',       t:'common', type:'select',
+   opts:['0:中旋','1:角度'], v:'1'},
+  {k:'use_fixed_dp_angle',g:'双押',name:'使用固定双押角度',t:'common',type:'check',v:true},
+  {k:'xk_base',    g:'采bpm',  name:'采bpm（N）',     t:'common', type:'select',
+   opts:['0:关','2:2','4:4','8:8'], v:'4'},
+  {k:'offset',     g:'时序',   name:'偏移',           t:'common', type:'num', v:0, unit:'ms'},
+  {k:'countdown_ticks',g:'时序',name:'倒计时格数',    t:'common', type:'num', v:4},
+
+  {k:'quantize_rhythm',g:'求解·高级',name:'音值量化',  t:'adv', type:'check', v:true},
+  {k:'allow_set_speed',g:'求解·高级',name:'允许 SetSpeed',t:'adv',type:'check', v:true},
+  {k:'twirl_limit_deg',g:'求解·高级',name:'Twirl 角度上限',t:'adv',type:'num',v:240,unit:'°'},
+  {k:'pause_min_beats',g:'求解·高级',name:'等待拍最少拍数',t:'adv',type:'num',v:4},
+  {k:'n_straighten_min_run',g:'求解·高级',name:'回正最少游程',t:'adv',type:'num',v:8},
+  {k:'snowflake_min_tiles',g:'雪花·高级',name:'雪花最少格数',t:'adv',type:'num',v:10},
+  {k:'snowflake_full_tiles',g:'雪花·高级',name:'雪花整朵格数',t:'adv',type:'num',v:48},
+  {k:'snowflake_min_arms',g:'雪花·高级',name:'雪花最少瓣数',t:'adv',type:'num',v:2},
+  {k:'ladder_outer_mode',g:'阶梯·高级',name:'外围选档',t:'adv',type:'select',
+   opts:['auto:自动','manual:手动'],v:'auto'},
+  {k:'pos_track_step',g:'阶梯·高级',name:'位置偏移步长',t:'adv',type:'num',v:0.22},
+  {k:'denoise_div',g:'去噪·高级',name:'去噪分母',t:'adv',type:'select',
+   opts:['0:自动','2','4','8'],v:'0'},
+
+  {k:'snowflake_seed',g:'开发者',name:'雪花随机种子',t:'dev',type:'num',v:20240213},
+  {k:'denoise_radius_ms',g:'开发者',name:'去噪半径',t:'dev',type:'num',v:0},
+  {k:'snowflake_uniform_tol_ms',g:'开发者',name:'雪花均匀容差',t:'dev',type:'num',v:3},
+];
+const TIER_LABEL={common:'常用',adv:'高级',dev:'开发者'};
+const PRESETS = {
+  '默认':{},
+  '满直线':{xk_base:'4',use_templates:false,use_snowflake:false,straight_preset:'2'},
+  '直拟合·时序优先':{fit_mode:'direct',quantize_rhythm:false},
+  '手工打磨':{use_templates:true,use_snowflake:true,straight_preset:'1'},
+};
+
+/* ============================================================ 布局：脱手即存
+   ★★ 用户 2026-10：「左右的栏目、停靠区都**想怎么拖就怎么拖**」
+   ---------------------------------------------------------------------------
+   模型：每个 pane = {dock:'left'|'right'|'top'|'bottom'|null, w,h, x,y, collapsed}
+         · dock = null ⇒ **浮动**（position:fixed）
+         · 四个停靠槽 #dock-{left,right,top,bottom} 各放一个 pane；空槽自动收起
+         · 拖 pane 到边缘 ⇒ 停靠；拖到中间 ⇒ 浮动；槽被占 ⇒ **原住户自动变浮窗**（不丢）
+   ```
+   L = { v:2, zoom, density, groups,
+         panes:{ left:{dock:'left',w:330},
+                 right:{dock:'right',w:340},
+                 report:{dock:'bottom',h:0},          // h=0 自适应
+                 flx:{dock:null,x:120,y:40,w:340,h:210,collapsed:false} } }
+   ```
+*/
+function cap(el,id){ try{ el.setPointerCapture(id); }catch(_e){} }
+// 停靠中的 pane 没有"位置/尺寸"概念（撑满槽）；撕成浮窗时给一个**合理**的大小，
+// 否则会把整屏高度（1000+px）原样带成浮窗 ⇒ 界面被撑爆。
+const clampW=v=>Math.max(240,Math.min(620,Math.round(v)));
+const clampH=v=>Math.max(180,Math.min(600,Math.round(v)));
+const LKEY='adofai-ui-demo-layout';
+const PANE_IDS=['left','right','report','flx'];
+const PANE_EL={left:'#left',right:'#right',report:'#report',flx:'#fl-xk'};
+const SIDE_DOCK={left:'#dock-left',right:'#dock-right',top:'#dock-top',bottom:'#dock-bottom'};
+const DEF={v:2, zoom:1, density:'normal', tlH:220, stH:96, lanes:true, groups:{},
+  panes:{
+    left:  {dock:'left',  w:330},
+    right: {dock:'right', w:340},
+    report:{dock:'bottom',h:0},
+    flx:   {dock:null, x:120, y:40, w:340, h:210, collapsed:false},
+  }};
+let L=loadLayout();
+function loadLayout(){
+  try{
+    const s=JSON.parse(localStorage.getItem(LKEY)||'null');
+    if(!s) return structuredClone(DEF);
+    if(s.v!==2) return structuredClone(DEF);          // 旧版模型 ⇒ 回默认（原型阶段够用）
+    return s;
+  }catch(e){ return structuredClone(DEF); }
+}
+let saveTimer=null;
+function saveLayout(msg){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{ localStorage.setItem(LKEY, JSON.stringify(L)); }catch(e){}
+    if(msg!==false) toast('布局已保存（下次打开复现）');
+  },400);          // ★ 「脱手后存」：拖动中不写盘
+}
+const paneEl=k=>document.getElementById(PANE_EL[k].slice(1));
+
+/** 把 pane 放到某个槽（side=null ⇒ 浮动） */
+function dockPane(k, side, at){
+  const P=L.panes[k], el=paneEl(k);
+  const prevDock=P.dock, z=L.zoom||1;
+  if(side && SIDE_DOCK[side]){
+    // 槽被占 ⇒ 原住户**变浮窗**（不丢内容），位置取它当时的位置
+    for(const o of PANE_IDS){
+      if(o!==k && L.panes[o].dock===side){
+        const oe=paneEl(o), b=oe.getBoundingClientRect();
+        Object.assign(L.panes[o],{dock:null,
+          x:Math.round(b.left/z), y:Math.round(b.top/z),
+          w:clampW(b.width/z), h:clampH(b.height/z)});
+        mount(o);
+      }
+    }
+    document.querySelector(SIDE_DOCK[side]).appendChild(el);
+    P.dock=side;
+  }else{
+    P.dock=null;
+    if(at){ P.x=Math.round(at.x); P.y=Math.round(at.y); }
+    mount(k);
+  }
+  applyLayout();
+}
+
+/** 浮动 pane 不许整块跑出视口（标题栏要留得住）—— 落点 / 启动时都过一遍 */
+function clampFloat(k){
+  const P=L.panes[k];
+  if(P.dock) return;
+  const z=L.zoom||1, W=innerWidth/z, H=innerHeight/z;
+  P.x=Math.round(Math.max(-P.w+140, Math.min(W-70, P.x)));
+  P.y=Math.round(Math.max(44, Math.min(H-46, P.y)));
+}
+function clampAllFloats(){ PANE_IDS.forEach(clampFloat); }
+
+/** 按 dock 决定 pane 挂在哪、什么样式 */
+function mount(k){
+  const P=L.panes[k], el=paneEl(k);
+  if(P.dock){
+    const host=document.querySelector(SIDE_DOCK[P.dock]);
+    if(el.parentNode!==host) host.appendChild(el);
+    el.classList.add('docked','pane'); el.classList.remove('floating');
+    el.style.left=el.style.top=''; el.style.right=el.style.bottom='';
+    el.style.width=el.style.height='';
+  }else{
+    // 浮动：挂到 #app（脱离 flex 流），用 fixed 定位
+    if(el.parentNode!==document.getElementById('app'))
+      document.getElementById('app').appendChild(el);
+    el.classList.add('floating','pane','float'); el.classList.remove('docked');
+    el.style.display = P.open===false ? 'none' : 'flex';
+  }
+}
+function applyLayout(){
+  document.documentElement.dataset.density=L.density||'normal';
+  const z=L.zoom||1, app=document.getElementById('app');
+  app.style.zoom=z;
+  // ★ CSS `zoom` 会把 "height:100%" 也放大 ⇒ 应用整体缩放时按比例缩回，避免撑出滚动条
+  app.style.height=(100/z)+'%';
+  app.style.width=(100/z)+'%';
+  // ★ 时间轴带高度（用户可拖 / 可滚轮缩），预览区吃剩下的
+  //   「泳道」关掉时它退化成**增强版全曲条**（段 + 标记 + 播放头）—— 那有自己的高度 stH
+  const lanesOn = L.lanes !== false;
+  const hh = Math.round(lanesOn ? (L.tlH||220) : (L.stH||96));
+  document.getElementById('tlwrap').style.height=hh+'px';
+  document.getElementById('btn-lanes').textContent = lanesOn ? '泳道 ✓' : '泳道 ✗';
+  document.getElementById('btn-lanes').classList.toggle('primary',lanesOn);
+  document.getElementById('density').value=L.density||'normal';
+  for(const k of PANE_IDS){
+    const P=L.panes[k], el=paneEl(k);
+    mount(k);
+    if(P.dock==='left'||P.dock==='right'){ el.style.width=Math.round(P.w)+'px'; el.style.height='100%'; }
+    else if(P.dock==='top'||P.dock==='bottom'){ el.style.height=(P.h||0)>0?Math.round(P.h)+'px':''; el.style.width='100%'; }
+    else {  // 浮动
+      el.style.left=Math.round(P.x)+'px'; el.style.top=Math.round(P.y)+'px';
+      el.style.width=Math.round(P.w)+'px'; el.style.height=Math.round(P.h)+'px';
+      el.classList.toggle('collapsed',!!P.collapsed);
+    }
+  }
+  // 空槽收起 + 相邻分隔条隐藏
+  for(const s of ['left','right','top','bottom']){
+    const d=document.querySelector(SIDE_DOCK[s]);
+    const occupied=PANE_IDS.some(k=>L.panes[k].dock===s);
+    d.classList.toggle('empty',!occupied);
+  }
+  document.querySelector('.split[data-split=left]').style.display =
+    L.panes.left.dock==='left' ? '' : 'none';
+  document.querySelector('.split[data-split=right]').style.display =
+    L.panes.right.dock==='right' ? '' : 'none';
+  document.querySelector('.split[data-split=bottom]').style.display =
+    L.panes.report.dock==='bottom' ? '' : 'none';
+}
+
+/* ============================================================ ★ Shift+M 布局编辑模式
+   用户 2026-10：「设置为按下 Shift+M 所有 ui 块都可以拖动、滚轮缩放比较好」
+              +「（移动模式）**不响应任何点击**」
+              +「左右的栏目、停靠区都想怎么拖就怎么拖」
+   ---------------------------------------------------------------------------
+   模式内：全 UI 冻结（点击穿透到 pane = 拖整块）· 拖 pane = 移走/停靠 ·
+   滚轮 = 缩放这一块 · Ctrl+滚轮 = 整体缩放 · 松手存盘
+*/
+let layoutMode=false, uiZoom=1;
+function setLayoutMode(on){
+  layoutMode=!!on;
+  document.body.classList.toggle('layoutmode',layoutMode);
+  document.getElementById('lmbanner').classList.toggle('on',layoutMode);
+  document.getElementById('btn-layout').classList.toggle('primary',layoutMode);
+  hud('');
+  if(layoutMode) toast('移动模式：内容已冻结（点不动）；拖块到边缘=停靠，拖到中间=浮动');
+}
+const HUD_HINT='拖块到「左/右/上/下」边缘 = 停靠\n拖到中间 = 变成浮窗\n滚轮 = 缩放这一块\nCtrl+滚轮 = 整体缩放\nEsc / Shift+M 退出 · 松手自动存';
+function hud(s){ document.getElementById('lmhud').textContent = s || HUD_HINT; }
+document.getElementById('btn-layout').onclick=()=>setLayoutMode(!layoutMode);
+document.getElementById('lm-exit').onclick=()=>setLayoutMode(false);
+
+// 落点提示条
+const dzh=document.createElement('div');
+dzh.id='dzhint';
+dzh.innerHTML=['left','right','top','bottom','float']
+  .map(s=>`<i data-side="${s}"></i>`).join('');
+document.body.appendChild(dzh);
+function showDz(side){
+  dzh.classList.add('on');
+  dzh.querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.side===side));
+}
+function hideDz(){ dzh.classList.remove('on'); dzh.querySelectorAll('i').forEach(i=>i.classList.remove('on')); }
+/** 指针在哪儿 ⇒ 落点是谁（边缘 22%/26% 之内算停靠，否则浮动） */
+function sideAt(x,y){
+  const W=innerWidth,H=innerHeight;
+  if(x<W*0.15) return 'left';
+  if(x>W*0.85) return 'right';
+  if(y<H*0.14) return 'top';
+  if(y>H*0.86) return 'bottom';
+  return 'float';
+}
+
+// pane 拖动 / 缩放 / 滚轮（移动模式专用）
+PANE_IDS.forEach(k=>{
+  const el=paneEl(k);
+  el.addEventListener('pointerdown',e=>{
+    if(!layoutMode) return;
+    if(e.target.closest('#lmbanner,#top,#dzhint')) return;
+    e.preventDefault(); e.stopPropagation();
+    cap(el,e.pointerId);
+    const P=L.panes[k];
+    const b=el.getBoundingClientRect(), z0=L.zoom||1;
+    const x0=e.clientX, y0=e.clientY;
+    // 贴边 8px ⇒ 改尺寸；否则 ⇒ 移走（停靠中就撕下来）
+    const nearR=Math.abs(x0-b.right)<=8, nearB=Math.abs(y0-b.bottom)<=8;
+    const resizing = nearR||nearB;
+    const snap={x:Math.round(b.left/z0),y:Math.round(b.top/z0),
+                w:clampW(b.width/z0),h:clampH(b.height/z0),dock:P.dock};
+    let moved=false;
+    el.classList.add('dragging');
+
+    const move=ev=>{
+      const Z=L.zoom||1;                          // ★ 除以整体缩放：缩放下手感仍精确
+      const dx=(ev.clientX-x0)/Z, dy=(ev.clientY-y0)/Z;
+      if(Math.abs(dx)+Math.abs(dy)>4) moved=true;
+      if(resizing){                                   // ── 改尺寸
+        if(nearR){ const w=Math.max(200,snap.w+dx); P.w=w; hud(`宽 ${Math.round(w)}px`); }
+        if(nearB){ const h=Math.max(90,snap.h+dy); P.h=h; hud(`高 ${Math.round(h)}px`); }
+      }else{                                          // ── 移走 / 停靠
+        if(!moved) return;
+        if(P.dock!==null){                            // 撕下来 → 变浮窗（保住当前尺寸）
+          Object.assign(P,{dock:null,x:snap.x,y:snap.y,w:snap.w,h:snap.h});
+        }
+        P.x=Math.round(snap.x+dx);
+        P.y=Math.round(snap.y+dy);
+        const side=sideAt(ev.clientX,ev.clientY);
+        showDz(side);
+        hud('→ ' + ({float:'浮动（放到哪算哪）',left:'停靠到左边',right:'停靠到右边',
+                     top:'停靠到上边',bottom:'停靠到下边'}[side]));
+      }
+      applyLayout(); sizeCanvases(); draw();
+    };
+    const up=ev=>{
+      el.classList.remove('dragging'); hideDz();
+      if(moved && !resizing){
+        const side=sideAt(ev.clientX,ev.clientY);
+        if(side==='float'){ L.panes[k].dock=null; clampFloat(k); }
+        else dockPane(k,side);
+      }
+      applyLayout(); saveLayout(); sizeCanvases(); draw(); hud('');
+      window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up);
+    };
+    window.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+  });
+  // 滚轮：缩放这一块 / Ctrl+滚轮：整体缩放
+  el.addEventListener('wheel',e=>{
+    if(!layoutMode) return;
+    e.preventDefault(); e.stopPropagation();
+    const P=L.panes[k];
+    if(e.ctrlKey){
+      uiZoom=Math.max(.7,Math.min(1.8, uiZoom*(e.deltaY<0?1.06:1/1.06)));
+      L.zoom=uiZoom; applyLayout(); sizeCanvases(); draw();
+      hud(`整体缩放 ×${uiZoom.toFixed(2)}`); saveLayout(false); return;
+    }
+    const f=e.deltaY<0?1.06:1/1.06;
+    if(P.dock==='left'||P.dock==='right'){ P.w=Math.max(200,Math.min(660,P.w*f)); hud(`宽 ${Math.round(P.w)}px`); }
+    else if(P.dock==='top'||P.dock==='bottom'){ P.h=Math.max(34,Math.min(320,(P.h||60)*f)); hud(`高 ${Math.round(P.h)}px`); }
+    else { P.w=Math.max(200,P.w*f); P.h=Math.max(90,P.h*f);
+           hud(`${Math.round(P.w)}×${Math.round(P.h)}`); }
+    applyLayout(); sizeCanvases(); draw(); saveLayout(false);
+  },{passive:false});
+});
+
+/* 浮窗顶栏的折叠 / 关闭（只对浮动状态的 flx 生效；非移动模式也能点） */
+document.querySelectorAll('#fl-xk .x').forEach(b=>b.addEventListener('pointerdown',e=>{
+  if(layoutMode) return;
+  e.stopPropagation();
+  const P=L.panes.flx;
+  if(b.dataset.act==='collapse'){ P.collapsed=!P.collapsed; applyLayout(); saveLayout(); }
+  else { P.open=false; applyLayout(); saveLayout(); toast('浮窗已关（可从「恢复默认布局」再开）'); }
+}));
+
+/* ============================================================ 分隔条（非移动模式也能拖） */
+document.querySelectorAll('.split').forEach(sp=>{
+  sp.addEventListener('pointerdown',e=>{
+    const which=sp.dataset.split, x0=e.clientX, y0=e.clientY;
+    // ★ 时间轴带的分隔条（不是 pane，单独处理）
+    if(which==='tl'){
+      cap(sp,e.pointerId); sp.classList.add('on');
+      const on=lanesOn();
+      const key=on?'tlH':'stH', min=on?70:56, max=on?innerHeight:200;
+      const h0=L[key]||(on?220:96), Z=L.zoom||1;
+      const mv=ev=>{ L[key]=Math.max(min,Math.min(max/Z, h0-(ev.clientY-y0)/Z));
+        applyLayout(); sizeCanvases(); draw(); };
+      const up=()=>{sp.classList.remove('on');saveLayout();
+        window.removeEventListener('pointermove',mv);
+        window.removeEventListener('pointerup',up);};
+      window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+      return;
+    }
+    const P=({left:L.panes.left, right:L.panes.right, bottom:L.panes.report})[which];
+    if(!P || !P.dock) return;
+    cap(sp,e.pointerId); sp.classList.add('on');
+    const w0=P.w||0, h0=P.h||0, Z=L.zoom||1;
+    const move=ev=>{
+      const dx=(ev.clientX-x0)/Z, dy=(ev.clientY-y0)/Z;
+      if(which==='left') P.w=Math.max(200,Math.min(660,w0+dx));
+      else if(which==='right') P.w=Math.max(200,Math.min(660,w0-dx));
+      else P.h=Math.max(34,Math.min(320,h0-dy));
+      applyLayout(); sizeCanvases(); draw();
+    };
+    const up=()=>{sp.classList.remove('on');saveLayout();
+      window.removeEventListener('pointermove',move);
+      window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+  });
+});
+
+/* ============================================================ 浮窗：拖 / 缩（**非**移动模式）
+   移动模式里由统一 pane 拖动接管（能拖去停靠）；这里只服务"平时随手挪一下"。
+   ★ 任何 pane 只要处于浮动状态都复用这套（`.pane.floating`）。 */
+(function(){
+  document.querySelectorAll('.pane').forEach(el=>{
+    const head=el.querySelector('.fhead,.zhead'), grip=el.querySelector('.grip');
+    const k=el.dataset.pane;
+    if(head) head.addEventListener('pointerdown',e=>{
+      if(layoutMode) return;
+      const P=L.panes[k];
+      if(P.dock) return;                       // 停靠中：位置由槽决定，不能随手挪
+      if(e.target.dataset.act) return;
+      cap(head,e.pointerId);
+      const Z=L.zoom||1;
+      const x0=e.clientX,y0=e.clientY,ox=P.x,oy=P.y;
+      const move=ev=>{P.x=ox+(ev.clientX-x0)/Z; P.y=oy+(ev.clientY-y0)/Z; applyLayout();};
+      const up=()=>{saveLayout();window.removeEventListener('pointermove',move);
+        window.removeEventListener('pointerup',up);};
+      window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+    });
+    if(grip) grip.addEventListener('pointerdown',e=>{
+      if(layoutMode) return;
+      e.stopPropagation(); cap(grip,e.pointerId);
+      const P=L.panes[k], Z=L.zoom||1;
+      const x0=e.clientX,y0=e.clientY,ow=P.w,oh=P.h;
+      const move=ev=>{P.w=Math.max(200,ow+(ev.clientX-x0)/Z);
+        P.h=Math.max(90,oh+(ev.clientY-y0)/Z); applyLayout();};
+      const up=()=>{saveLayout();window.removeEventListener('pointermove',move);
+        window.removeEventListener('pointerup',up);};
+      window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+    });
+  });
+  // 浮窗顶栏的折叠 / 关闭
+  document.querySelectorAll('#fl-xk .x').forEach(b=>b.addEventListener('pointerdown',e=>{
+    if(layoutMode) return;
+    e.stopPropagation();
+    const P=L.panes.flx;
+    if(b.dataset.act==='collapse') P.collapsed=!P.collapsed;
+    else { P.open=false; toast('浮窗已关（「恢复默认布局」可再开）'); }
+    applyLayout(); saveLayout();
+  }));
+})();
+
+/* ============================================================ 段列表 */
+function renderSegs(){
+  const box=document.getElementById('seglist'); box.innerHTML='';
+  SEGS.forEach(s=>{
+    const d=document.createElement('div');
+    d.className='rowitem'+(selSeg===s.id?' sel':'');
+    d.innerHTML=`<span class="dot" style="background:${KIND_HEX[s.kind]}"></span>
+      <span>${s.label}</span>
+      <span class="kindtag">${(s.t0/1000).toFixed(1)}s→${(s.t1/1000).toFixed(1)}s</span>`;
+    d.onclick=()=>{selSeg=s.id; renderSegs(); renderInspector(); draw();};
+    box.appendChild(d);
+  });
+}
+/* 音轨列表 */
+function renderTracks(){
+  const box=document.getElementById('tracklist'); box.innerHTML='';
+  TRACKS.forEach(t=>{
+    const d=document.createElement('label');
+    d.className='tk';
+    d.innerHTML=`<input type="checkbox" ${t.on?'checked':''}>
+      <span class="t">${t.name}</span>
+      <span class="kindtag">${t.n}${t.dp?' · 双押轨':''}</span>`;
+    d.querySelector('input').onchange=ev=>{t.on=ev.target.checked;draw();};
+    box.appendChild(d);
+  });
+}
+
+/* ============================================================ 参数（分层 + 搜索 + 预设） */
+let pQuery='';
+function renderParams(){
+  const box=document.getElementById('params'); box.innerHTML='';
+  const groups={};
+  PARAMS.filter(p=>!pQuery || (p.name+p.k).toLowerCase().includes(pQuery.toLowerCase()))
+        .forEach(p=>{(groups[p.g]=groups[p.g]||[]).push(p);});
+  const order=Object.keys(groups);
+  order.forEach(g=>{
+    const isAdv = /·高级|开发者/.test(g);
+    const openNow = pQuery ? true : (L.groups[g] !== false && !isAdv);
+    const sec=document.createElement('section');
+    sec.className='pgrp'+(openNow?'':' collapsed');
+    const h=document.createElement('h4');
+    h.innerHTML=`<span class="caret">${openNow?'▾':'▸'}</span>${g}
+      <span class="grow"></span><span class="tier">${groups[g].length}</span>`;
+    h.onclick=()=>{ const c=sec.classList.toggle('collapsed');
+      L.groups[g]=!c; saveLayout(false); renderParams(); };
+    sec.appendChild(h);
+    const body=document.createElement('div'); body.className='pbody';
+    groups[g].forEach(p=>body.appendChild(field(p)));
+    sec.appendChild(body); box.appendChild(sec);
+  });
+  if(!PARAMS.some(p=>(p.name+p.k).toLowerCase().includes(pQuery.toLowerCase()))){
+    box.innerHTML='<div class="hint">没有匹配的参数。</div>';
+  }
+}
+function field(p){
+  const d=document.createElement('div'); d.className='fld';
+  const l=document.createElement('label'); l.textContent=p.name; l.title=p.k;
+  const c=document.createElement('div'); c.className='ctl';
+  let inp;
+  if(p.type==='check'){inp=document.createElement('input');inp.type='checkbox';inp.checked=p.v;}
+  else if(p.type==='select'){inp=document.createElement('select');
+    p.opts.forEach(o=>{const op=document.createElement('option');
+      op.value=o.split(':')[0];op.textContent=o.split(':')[1]||o;inp.appendChild(op);});
+    inp.value=p.v;
+    if(p.auto&&p.k==='base_bpm'){
+      const a=document.createElement('label');a.className='hint';
+      a.innerHTML='<input type="checkbox" id="autobpm" checked> 自动';
+      c.appendChild(inp);c.appendChild(a);d.appendChild(l);d.appendChild(c);
+      return d;
+    }
+  } else {inp=document.createElement('input');inp.type='number';inp.value=p.v;}
+  inp.onchange=()=>toast(`已改「${p.name}」→ 重新生成后可看效果`);
+  c.appendChild(inp);
+  if(p.unit){const u=document.createElement('span');u.className='hint';u.textContent=p.unit;c.appendChild(u);}
+  d.appendChild(l); d.appendChild(c);
+  if(p.k==='use_fixed_dp_angle'){
+    const n=document.createElement('div');n.className='hint';
+    n.style.margin='-2px 0 4px 102px';
+    n.textContent='（开着时「薄角 θ / 偏移预算」不参与选角）';
+    d.style.flexWrap='wrap'; d.appendChild(n);
+  }
+  return d;
+}
+document.getElementById('psearch').oninput=e=>{pQuery=e.target.value;renderParams();};
+function renderPresets(){
+  const box=document.getElementById('presets'); box.innerHTML='';
+  Object.keys(PRESETS).forEach(name=>{
+    const b=document.createElement('button');
+    b.textContent=name; b.className=(curPreset===name?'on':'');
+    b.onclick=()=>{
+      const ch=PRESETS[name]; let n=0;
+      Object.entries(ch).forEach(([k,v])=>{
+        const p=PARAMS.find(x=>x.k===k); if(p&&p.v!==v){p.v=v;n++;}});
+      curPreset=name; renderPresets(); renderParams();
+      toast(`已套用「${name}」：改了 ${n} 个字段` +
+            (n?`（${Object.keys(ch).join(' / ')}）`:'（与当前一致）'));
+    };
+    box.appendChild(b);
+  });
+}
+let curPreset='默认', selSeg=null;
+
+/* ============================================================ 检查器（选中段） */
+function renderInspector(){
+  const s=SEGS.find(x=>x.id===selSeg);
+  document.getElementById('selname').textContent = s? `段：${s.label}` : '未选中';
+  const old=document.getElementById('selcard'); if(old) old.remove();
+  if(!s) return;
+  const d=document.createElement('div');
+  d.id='selcard'; d.className='card'; d.style.borderColor=KIND_HEX[s.kind];
+  d.innerHTML=`<b style="color:#eaf4ff">${s.label}</b> · ${s.kind}<br>
+    ${(s.t0/1000).toFixed(2)}s → ${(s.t1/1000).toFixed(2)}s
+    （${((s.t1-s.t0)/1000).toFixed(2)}s）<br>
+    <span class="hint">属性：${JSON.stringify(s.props)}</span>`;
+  const box=document.getElementById('params');
+  box.parentNode.insertBefore(d, box);
+}
+
+/* ============================================================ 时间轴 */
+const cv=document.getElementById('tl'), ctx=cv.getContext('2d');
+const ov=document.getElementById('ov'), octx=ov.getContext('2d');
+const pv=document.getElementById('pv'), pctx=pv.getContext('2d');
+let view={t0:0, per:1};      // per = px/ms
+let playT=0, playing=false, raf=null, curView='chart';
+function sizeCanvases(){
+  const r=cv.parentNode.getBoundingClientRect(), dpr=devicePixelRatio||1;
+  cv.width=r.width*dpr; cv.height=r.height*dpr; cv.style.height=r.height+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const r2=ov.getBoundingClientRect();
+  ov.width=r2.width*dpr; ov.height=r2.height*dpr; octx.setTransform(dpr,0,0,dpr,0,0);
+  const r3=pv.parentNode.getBoundingClientRect();
+  pv.width=r3.width*dpr; pv.height=r3.height*dpr; pctx.setTransform(dpr,0,0,dpr,0,0);
+}
+/** ★ 主区预览：四个视图各画一个示意图（真实现场 = Re_ADOJAS 的三维渲染 + 三个只读视图） */
+function drawPreview(){
+  const W=pv.clientWidth, H=pv.clientHeight;
+  pctx.clearRect(0,0,W,H);
+  pctx.font='12px "Microsoft YaHei UI", sans-serif';
+  pctx.fillStyle='#5b6874';
+  const cap=(s)=>{ pctx.fillStyle='#6f7b87'; pctx.fillText(s, 12, H-10); };
+  const cx=W/2, cy=H/2, R=Math.min(W,H)*0.16;
+  if(curView==='chart'){
+    // 谱面预览：一颗行星 + 一圈方格 + 中心的小圆（示意）
+    pctx.strokeStyle='#22303c'; pctx.lineWidth=1;
+    pctx.beginPath(); pctx.arc(cx,cy,R,0,Math.PI*2); pctx.stroke();
+    for(let i=0;i<28;i++){
+      const a=-Math.PI/2+i*(Math.PI*2/28);
+      const x=cx+Math.cos(a)*(R*1.5), y=cy+Math.sin(a)*(R*1.5);
+      pctx.fillStyle = i%3===0 ? '#d29922' : '#3a6f96';
+      pctx.save(); pctx.translate(x,y); pctx.rotate(a+Math.PI/2);
+      pctx.fillRect(-8,-8,16,16); pctx.restore();
+      if(i%3===0){ pctx.fillStyle='#eaf4ff'; pctx.fillRect(x-9,y-9,3,18); }
+    }
+    pctx.fillStyle='#101820'; pctx.beginPath(); pctx.arc(cx,cy,R*0.42,0,Math.PI*2); pctx.fill();
+    pctx.strokeStyle='#2f5d80'; pctx.stroke();
+    cap(`★ 谱面预览 · Re_ADOJAS 三维渲染（${RECV} 层 · 双押 328 · 三押 128）`);
+  }else if(curView==='roll'){
+    for(let i=0;i<40;i++){                       // 钢琴卷帘
+      const t=i*195/DUR, x=t*W, h=8;
+      pctx.fillStyle = i%4===0 ? '#d29922' : '#3a6f96';
+      pctx.fillRect(x, cy-60+((i*7)%18)*7, 3, h);
+    }
+    pctx.strokeStyle='#1b232c';
+    for(let k=0;k<8;k++){const y=cy-72+k*18;pctx.beginPath();pctx.moveTo(0,y);pctx.lineTo(W,y);pctx.stroke();}
+    cap('钢琴卷帘 · 155 个采音点（双押加粗）');
+  }else if(curView==='path'){
+    pctx.strokeStyle='#2f8d6a'; pctx.lineWidth=2; pctx.beginPath();
+    for(let i=0;i<220;i++){
+      const a=i*0.13, r=R*(0.35+i/220);
+      const x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+      i?pctx.lineTo(x,y):pctx.moveTo(x,y);
+    }
+    pctx.stroke();
+    cap('谱面路径 · 验打结（最近距 0.000 会标红）');
+  }else{
+    for(let k=0;k<4;k++){                        // 4K 下落式
+      const x=cx-3*54+k*54;
+      pctx.fillStyle='#0f151c'; pctx.fillRect(x-22,20,44,H-40);
+      pctx.strokeStyle='#22303c'; pctx.strokeRect(x-22.5,20.5,44,H-41);
+      for(let j=0;j<6;j++){ pctx.fillStyle=(k+j)%3?'#3a6f96':'#d29922';
+        pctx.fillRect(x-16, 40+((j*77+k*41)%(H-100)), 32, 14); }
+    }
+    cap('4K 下落式 · 验采音手感（空格播放时真会下落）');
+  }
+}
+const RECV='1543';
+const X=t=>(t-view.t0)*view.per, T=x=>view.t0+x/view.per;
+const LANES=[['主轨',38],['次轨',0],['双押',1],['采bpm骨架',2],['走向 (待定)',3],['镜头 (挂起)',4]];
+const ROW=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row'));
+// ★ 泳道关掉时（`L.lanes=false`）退化成「**增强版全曲条**」：段 + 标记 + 播放头，
+//   所有 laneY 压到同一条标记行上 —— 这就是「时间轴不是必须的」那个方案。
+const lanesOn=()=>L.lanes!==false;
+function laneY(i){ return lanesOn() ? 34 + i*(ROW()+6) : 62; }
+function draw(){
+  if(!ctx) return;
+  const W=cv.clientWidth, H=cv.clientHeight, on=lanesOn();
+  ctx.clearRect(0,0,W,H);
+  ctx.font='11px Consolas, monospace';
+  // 段带
+  SEGS.forEach(s=>{
+    const x0=X(s.t0), x1=X(s.t1);
+    if(x1<0||x0>W) return;
+    ctx.fillStyle=KIND_HEX[s.kind]+(selSeg===s.id?'':'99');
+    ctx.fillRect(x0,6,Math.max(2,x1-x0),24);
+    ctx.strokeStyle=selSeg===s.id?'#eaf4ff':'#0b0f14';
+    ctx.lineWidth=selSeg===s.id?2:1;
+    ctx.strokeRect(x0+.5,6.5,Math.max(2,x1-x0)-1,23);
+    ctx.fillStyle='#eaf4ff'; ctx.fillText(s.label, x0+5, 22);
+  });
+  // 时间刻度
+  const step = view.per>0.06?1000 : view.per>0.02?5000 : 10000;
+  for(let t=Math.floor(view.t0/step)*step; t<view.t0+W/view.per; t+=step){
+    const x=X(t);
+    ctx.strokeStyle='#1b232c'; ctx.beginPath(); ctx.moveTo(x,34); ctx.lineTo(x,H);
+    ctx.stroke();
+    ctx.fillStyle='#5b6874'; ctx.fillText((t/1000).toFixed(0)+'s', x+3, 52);
+  }
+  // 泳道底（关掉时只留一条「标记」行）
+  (on ? LANES : [['标记',0]]).forEach((ln,i)=>{
+    const y=laneY(on?i:0);
+    ctx.fillStyle = on ? (i%2 ? '#0d1218' : '#0f151c') : '#0f151c';
+    ctx.fillRect(0,y-14, W, ROW()+2);
+    ctx.fillStyle='#6f7b87'; ctx.fillText(on?ln[0]:'标记', 6, y);
+  });
+  // 主轨（假 onset）—— 只在有泳道时画
+  if(on){
+    const n=Math.floor(DUR/195);
+    ctx.fillStyle='#3a6f96';
+    for(let i=0;i<n;i++){const x=X(i*195+30);
+      if(x>-4&&x<W) ctx.fillRect(x,laneY(0)-4,2,8);}
+  }
+  // 双押 / 三押（★ 两种模式都画 —— 这是"必须看得见"的那件事）
+  DP.forEach(d=>{
+    const x=X(d.t); if(x<-6||x>W) return;
+    const y=laneY(2);
+    ctx.fillStyle = d.triple?'#eaf4ff':'#d29922';
+    ctx.fillRect(x-1,y-7,d.triple?3:2,d.triple?14:8);
+    if(d.triple){ ctx.fillRect(x-3,y-3,7,2); }      // 三押：加一道横杠
+  });
+  // 采bpm 骨架 / 走向 / 镜头 —— 只在有泳道时画
+  if(on){
+    SEGS.filter(s=>s.kind==='skeleton').forEach(s=>{
+      const y=laneY(3)-8;
+      ctx.fillStyle='#8a5cd266';
+      for(let t=s.t0;t<s.t1;t+=60){
+        const x=X(t); if(x>W) break;
+        if(x>-2) ctx.fillRect(x,y,1,ROW()-2);
+      }
+    });
+    ctx.fillStyle='#2f8f6a';
+    STEER.forEach(t=>{const x=X(t),y=laneY(4)-6; if(x>-8&&x<W){
+      ctx.beginPath();ctx.moveTo(x-5,y-4);ctx.lineTo(x+7,y);ctx.lineTo(x-5,y+4);ctx.closePath();ctx.fill();}});
+    CAMS.forEach(c=>{const x0=X(c.t0),x1=X(c.t1),y=laneY(5)-7;
+    ctx.fillStyle='#c07a2b99';ctx.fillRect(x0,y,x1-x0,ROW()-2);
+    ctx.fillStyle='#eaf4ff';ctx.fillText(c.tag,x0+4,y+ROW()-7);});
+  }
+  // 播放头
+  const px=X(playT);
+  ctx.strokeStyle='#f85149'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,H);ctx.stroke();
+  // 全曲条
+  const w2=ov.clientWidth,h2=ov.clientHeight;
+  octx.clearRect(0,0,w2,h2);
+  const OX=t=>t/DUR*w2;
+  SEGS.forEach(s=>{octx.fillStyle=KIND_HEX[s.kind]+'bb';
+    octx.fillRect(OX(s.t0),8,Math.max(2,OX(s.t1)-OX(s.t0)),22);});
+  octx.fillStyle='#d29922';
+  DP.forEach(d=>octx.fillRect(OX(d.t)-1,36,2,6));
+  octx.strokeStyle='#f85149';octx.beginPath();
+  octx.moveTo(OX(playT),0);octx.lineTo(OX(playT),h2);octx.stroke();
+  octx.fillStyle='#5b6874';octx.font='10px Consolas';octx.fillText('全曲预览（点=定位 / 拖动=框选）',6,12);
+  document.getElementById('zoomlabel').textContent='×'+view.per.toFixed(2);
+}
+/* 交互：滚轮缩放 / 中键平移 / 点段 / 拖段边界 */
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const t=T(e.offsetX), k=e.deltaY<0?1.12:1/1.12;
+  view.per=Math.max(0.004,Math.min(2,view.per*k));
+  view.t0=t-(e.offsetX/view.per); draw();
+},{passive:false});
+let pan=null;
+cv.addEventListener('pointerdown',e=>{
+  const hit=SEGS.find(s=>e.offsetY<34 && e.offsetX>=X(s.t0)-3 && e.offsetX<=X(s.t1)+3);
+  if(e.button===1 || (e.button===0 && e.offsetY<34 && !hit)){        // 平移 / 定位
+    pan={x:e.clientX,t0:view.t0}; cap(cv,e.pointerId); return;
+  }
+  if(hit){
+    const edgeL=Math.abs(e.offsetX-X(hit.t0))<6, edgeR=Math.abs(e.offsetX-X(hit.t1))<6;
+    selSeg=hit.id; renderSegs(); renderInspector();
+    const move=ev=>{
+      const dt=(ev.clientX-e.clientX)/view.per;
+      if(edgeL) hit.t0=Math.max(0,Math.min(hit.t1-500,hit.t0+dt));
+      else if(edgeR) hit.t1=Math.min(DUR,Math.max(hit.t0+500,hit.t1+dt));
+      else return;
+      renderSegs(); draw();
+    };
+    const up=()=>{toast(`段「${hit.label}」→ ${(hit.t0/1000).toFixed(2)}s ~ ${(hit.t1/1000).toFixed(2)}s`);
+      window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+    draw(); return;
+  }
+  // 空白 = 定位播放头
+  playT=Math.max(0,Math.min(DUR,T(e.offsetX))); draw();
+});
+cv.addEventListener('pointermove',e=>{
+  if(!pan) return;
+  view.t0=pan.t0-(e.clientX-pan.x)/view.per; draw();
+});
+cv.addEventListener('pointerup',()=>{pan=null;});
+document.getElementById('playbtn').onclick=()=>{
+  playing=!playing;
+  document.getElementById('playbtn').textContent = playing?'⏸ 暂停':'▶ 播放';
+  if(playing){ let last=performance.now();
+    const tick=now=>{ if(!playing) return;
+      playT=Math.min(DUR,playT+(now-last)); last=now;
+      document.getElementById('tlabel').textContent=
+        fmt(playT)+' / '+fmt(DUR); draw(); raf=requestAnimationFrame(tick); };
+    raf=requestAnimationFrame(tick);
+  } else cancelAnimationFrame(raf);
+};
+function fmt(ms){const s=ms/1000;return `${Math.floor(s/60)}:${(s%60).toFixed(2).padStart(5,'0')}`;}
+
+/* ============================================================ 报告带明细 */
+const DETAIL={
+  dp3:`<b>三押 128 处</b>（押数 3押×128）· 组合 <span class="k">30 · 60</span>（cbpm 1000，参考谱实测）<br>
+       判据：<span class="k">同一时刻有 2 条多押轨都有音</span> ⇒ 那一格拆 3 块<br>
+       例：trk1+trk2 @ 12.500s / 13.000s / 13.500s …（点任意一项定位）`,
+  dp4:`⚠ <b>跳过四押 67 处</b>：那些时刻有 <span class="k">3 条及以上</span>多押轨同时响。<br>
+      本轮**只做双押/三押**，那些落点**仍按双押插**（不整格丢）。<br>
+      最密的一处：trk1+trk2+trk3 @ 4.000s（共 3 条轨）`,
+  lost:`<b>双押丢 0 处</b> —— 一个点都没丢。<br>
+        ★ 前一轮捞回了 <span class="k">67 处</span>：调速现在落在**双押第一格**（不叠 Twirl）`,
+  sp:`<b>调速落双押第一格 6 处</b>（2026-10 规则：调速不和旋转重叠 + 位于双押第一格）`,
+  straight:`直线率 39% · 水平（180°）格占多数；三连音段是它自己的 120° 六边形`,
+  setspeed:`SetSpeed 41 处（其中 6 处落在双押第一格）`,
+  timing:`逐层时序误差 max 0.0000ms · 平均 0.0000ms（直拟合本该逐点精确）`,
+  warn:`⚠ 3 条警告：<br>
+  1. 67 处有 3 条及以上的多押轨同时响（四押/5押）—— 本轮跳过<br>
+  2. 采bpm：基准 BPM 钉死到 cbpm 1000（原来是自动）<br>
+  3. 已开「使用固定双押角度」⇒ 薄角 θ / 偏移预算不参与选角`,
+};
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  const d=document.getElementById('detail');
+  d.innerHTML=DETAIL[c.dataset.d]||'';
+  d.classList.toggle('on');
+  c.classList.toggle('warn');
+});
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),1800);
+}
+
+/* ============================================================ 顶栏 / 启动 */
+document.getElementById('density').onchange=e=>{L.density=e.target.value;applyLayout();
+  sizeCanvases();draw();saveLayout(false);};
+document.getElementById('preset').onchange=e=>{
+  const name=e.target.value; const ch=PRESETS[name];
+  Object.entries(ch).forEach(([k,v])=>{const p=PARAMS.find(x=>x.k===k); if(p)p.v=v;});
+  curPreset=name; renderPresets(); renderParams();
+  toast(`已套用「${name}」：改了 ${Object.keys(ch).length} 个字段`);
+};
+document.getElementById('btn-reset-layout').onclick=()=>{
+  L=structuredClone(DEF); localStorage.removeItem(LKEY); applyLayout();
+  renderParams(); sizeCanvases(); draw(); toast('布局已恢复默认');
+};
+document.getElementById('btn-lanes').onclick=()=>{
+  L.lanes = !lanesOn();
+  applyLayout(); sizeCanvases(); draw(); saveLayout();
+  toast(L.lanes ? '泳道开：分层看时间关系（多押/骨架/走向/镜头）'
+                : '泳道关：只剩「段 + 标记 + 播放头」= 增强版全曲条（高度也收了）');
+};
+document.getElementById('btn-rebuild').onclick=()=>{
+  toast('（原型）这里会跑真实重建：进度条 + 报告带刷新');
+};
+document.getElementById('xk_base').onchange=
+document.getElementById('xk_tbpm').oninput=()=>{
+  const n=Number(document.getElementById('xk_base').value)||0;
+  const tb=Number(document.getElementById('xk_tbpm').value)||0;
+  const c=n*tb;
+  document.getElementById('xk-mini').textContent = c? `cbpm ${c}`:'未配置';
+  toast(c? `cbpm = ${tb} × ${n} = ${c} · 砖长 ${(60000/c).toFixed(3)}ms`:'采bpm 已关');
+};
+document.addEventListener('keydown',e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||'')) return;
+  // ★ Shift+M：布局编辑模式（用户 2026-10）
+  if(e.shiftKey && (e.key==='M'||e.key==='m')){ e.preventDefault();
+    setLayoutMode(!layoutMode); return; }
+  if(e.key==='Escape' && layoutMode){ setLayoutMode(false); return; }
+  if(layoutMode) return;               // 移动模式里不抢空格等键
+  if(e.code==='Space'){e.preventDefault();document.getElementById('playbtn').click();}
+  if(e.key==='p'&&(e.ctrlKey||e.metaKey)){e.preventDefault();
+    document.getElementById('psearch').focus();}
+});
+window.addEventListener('resize',()=>{sizeCanvases();draw();drawPreview();});
+
+// ★ 主区视图页签（谱面预览 / 卷帘 / 路径 / 下落式）
+document.querySelectorAll('.vtab').forEach(b=>b.onclick=()=>{
+  curView=b.dataset.view;
+  document.querySelectorAll('.vtab').forEach(x=>x.classList.toggle('active',x===b));
+  document.getElementById('vname').textContent =
+    ({chart:'Re_ADOJAS 三维渲染（真实现场塞这里）', roll:'只读视图 · 采音正确性',
+      path:'只读视图 · 验打结', falling:'只读视图 · 手感'})[curView];
+  drawPreview();
+});
+
+applyLayout(); clampAllFloats(); applyLayout();
+renderPresets(); renderParams(); renderSegs(); renderTracks();
+requestAnimationFrame(()=>{sizeCanvases();view.per=cv.clientWidth/DUR;draw();drawPreview();});
+
+// 给自动化体检留的读数口（原型专用，不影响交互）
+window.__demo={ get playT(){return playT;}, get layoutMode(){return layoutMode;},
+                get L(){return L;}, get preset(){return curPreset;}, setLayoutMode,
+                get view(){return curView;}, drawPreview };
+</script>
+</body>
+</html>

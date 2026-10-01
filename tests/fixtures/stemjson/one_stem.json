@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "source_audio": "",
+  "duration_sec": 202.378,
+  "sample_rate": 22050,
+  "hop_ms": 5.0,
+  "separation_model": "htdemucs_6s",
+  "has_vocals": false,
+  "bpm_hint": null,
+  "stems": {
+    "melody": {
+      "source": "other",
+      "method": "onsetnet",
+      "model": "onset_net_melody.pt",
+      "onsets_sec": [
+        1.0,
+        1.15,
+        1.3,
+        1.45,
+        1.6,
+        1.75,
+        1.9
+      ],
+      "onsets_frame": [
+        200,
+        230,
+        260,
+        290,
+        320,
+        350,
+        380
+      ]
+    }
+  }
+}

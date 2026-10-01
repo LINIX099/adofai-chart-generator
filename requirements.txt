@@ -1,0 +1,14 @@
+# ADOFAI Chart Generator —— 运行依赖
+# Python 3.14（Python 3.14.3 实测通过）
+
+# 界面
+PySide6>=6.11
+
+# 数值 / 时序核心（core/ 全程用到）
+numpy>=2.0
+
+# 音频源（OGG/WAV → 音头，core/audio_onsets.py）才需要下面三个；
+# 只做 MIDI → 谱面可以装 numpy + PySide6 就够。
+scipy>=1.14
+soundfile>=0.12
+librosa>=0.10

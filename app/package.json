@@ -1,0 +1,75 @@
+{
+  "name": "adofai-chart-generator",
+  "productName": "ADOFAI 谱面生成器",
+  "version": "0.5.0-preview-bugfix",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "ADOFAI 谱面生成器 · Electron 前端（Python core 作为 sidecar）",
+  "main": "main.js",
+  "author": "adocharter",
+  "scripts": {
+    "start": "node ../tools/host.js link && electron .",
+    "dev": "node ../tools/host.js link && electron . --dev",
+    "smoke": "electron . --smoke",
+    "probe": "electron . --probe",
+    "look": "electron . --pick-look",
+    "e2e": "electron . --e2e",
+    "host:status": "node ../tools/host.js status",
+    "host:link": "node ../tools/host.js link",
+    "host:fetch": "node ../tools/host.js fetch",
+    "host:dev": "node ../tools/host.js dev",
+    "postinstall": "node -e \"console.log('electron ready')\"",
+    "pack:runtime": "python ../tools/make_runtime.py",
+    "pack:win": "npm run pack:runtime && electron-builder --win --x64",
+    "pack:dir": "electron-builder --win --x64 --dir"
+  },
+  "devDependencies": {
+    "electron": "44.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "dev.adocharter.adofai-chart-generator",
+    "productName": "ADOFAI 谱面生成器",
+    "copyright": "ADOFAI 谱面生成器 · 仅供学习交流",
+    "directories": {
+      "output": "../build/portable"
+    },
+    "asar": true,
+    "compression": "normal",
+    "extraFiles": [
+      { "from": "../packaging/使用说明.txt", "to": "使用说明.txt" }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "!renderer/**/*.map",
+      "!**/__pycache__/**",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "../core", "to": "core", "filter": ["**/*", "!**/__pycache__/**"] },
+      { "from": "../sidecar", "to": "sidecar", "filter": ["**/*", "!**/__pycache__/**"] },
+      { "from": "../patterns", "to": "patterns", "filter": ["**/*"] },
+      { "from": "../vendor/adofai_timemodel", "to": "vendor/adofai_timemodel", "filter": ["**/*"] },
+      { "from": "../samples", "to": "samples", "filter": ["**/*", "!**/*.bdg", "!**/backup.adofai"] },
+      { "from": "../VERSION", "to": "VERSION" },
+      { "from": "../build/runtime/python", "to": "runtime/python" },
+      { "from": "../bridge_plugin", "to": "bridge_plugin", "filter": ["**/*", "!**/__pycache__/**"] },
+      { "from": "../LICENSE", "to": "LICENSE" },
+      { "from": "../NOTICE", "to": "NOTICE" },
+      { "from": "../packaging/LICENSES", "to": "LICENSES" },
+      { "from": "../THIRD-PARTY.md", "to": "THIRD-PARTY.md" }
+    ],
+    "win": {
+      "target": [
+        { "target": "zip", "arch": ["x64"] }
+      ],
+      "artifactName": "ADOFAI-ChartGenerator-${version}-win-x64.zip",
+      "signAndEditExecutable": false
+    },
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    }
+  }
+}

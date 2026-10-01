@@ -1,0 +1,13 @@
+{
+  "Automaton_Waltz|{\"inplace_waste\": false}": "ccae4f03771a741762eff150e6ae44f5a448b989297cb5d5bef13bfccf66a2b3",
+  "Automaton_Waltz|{\"inplace_waste\": true}": "7edbda9ffe8a368b67501b11e87b82775968a014278484d7912ad76959f374bc",
+  "Automaton_Waltz|{\"pause_min_beats\": 1.0}": "3a1c00daa6fe7574a4bf2e5c98ff97d79e66f2dc2d62cc6d070aea09f5ddfbae",
+  "Automaton_Waltz|{\"pause_min_beats\": 4.0, \"travel_min\": 20.0, \"use_snowflake\": false}": "7edbda9ffe8a368b67501b11e87b82775968a014278484d7912ad76959f374bc",
+  "Automaton_Waltz|{\"snowflake_full_tiles\": 8.0, \"snowflake_min_tiles\": 4, \"use_snowflake\": true}": "7f982aba431a73bd6fd4923ef9d25ba01ea378b9e285dfaec784baacb318a581",
+  "Automaton_Waltz|{\"travel_min\": 45.0}": "fcfffdc476c17c1428de984cfadc704bfab010066f406637923618a9475c75c0",
+  "Automaton_Waltz|{\"use_position_track\": false}": "7edbda9ffe8a368b67501b11e87b82775968a014278484d7912ad76959f374bc",
+  "Automaton_Waltz|{\"use_position_track\": true}": "9ddfd087c080cf430b25b5031eeb5c9617dc3bab7b0bc78f0cca13926726b320",
+  "Automaton_Waltz|{}": "7edbda9ffe8a368b67501b11e87b82775968a014278484d7912ad76959f374bc",
+  "FallenEra|{}": "88ca9d493e42dfcabddba8f06be9f45c68e67e9db925b5f03a5d911524518e6a",
+  "MemoryLocked|{}": "4c6031ab48d20bb3c70a8eff919c2fa3b38a567a03789c94924d1891efe102c2"
+}

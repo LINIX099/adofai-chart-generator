@@ -1,0 +1,25 @@
+{
+  "app": "beat-data-generator",
+  "version": 2,
+  "baseBpm": 137.0,
+  "offsetMs": 12.5,
+  "tracks": [
+    {
+      "id": "t1",
+      "name": "主轨",
+      "type": "beat"
+    }
+  ],
+  "markers": [
+    {
+      "id": "m1",
+      "trackId": "t1",
+      "beat": 0
+    },
+    {
+      "id": "m2",
+      "trackId": "t1",
+      "beat": 4
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "app": "beat-data-generator",
+  "version": 2,
+  "tracks": [
+    {
+      "id": "t1"
+    },
+    {
+      "id": "t2",
+      "name": "有名字",
+      "type": "bridge:sub",
+      "hidden": true
+    }
+  ],
+  "markers": [
+    {
+      "id": "m1",
+      "trackId": "t1",
+      "beat": 0.0
+    },
+    {
+      "id": "m2",
+      "trackId": "t1",
+      "beat": 1.5
+    },
+    {
+      "id": "m3",
+      "trackId": "t2",
+      "beat": 2.0
+    },
+    {
+      "trackId": "t1",
+      "beat": "3.25"
+    }
+  ]
+}
