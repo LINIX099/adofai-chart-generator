@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication          # noqa: E402
 from ui.main_window import MainWindow               # noqa: E402
 
 ogg = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-    ROOT, "samples", "audio", "FallenEra_MaySnow.ogg")
+    ROOT, "samples", "_external", "audio", "FallenEra_MaySnow.ogg")
 
 app = QApplication.instance() or QApplication([])
 w = MainWindow()

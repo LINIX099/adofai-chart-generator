@@ -173,7 +173,7 @@ import tempfile                                                # noqa: E402
 #   并且**把实测数字写进断言消息**（数字不对时一眼看得出，不许悄悄放水）。
 MAX_STRAIGHT_GAP_PP = 21.0
 for name in ("Automaton_Waltz", "FallenEra", "MemoryLocked"):
-    mf = load(os.path.join(ROOT, "samples", name + ".mid"))
+    mf = load(os.path.join(ROOT, "samples", "_external", name + ".mid"))
     ons = build_onsets(mf.tracks[0].notes, OnsetParams(merge_ms=30.0))
 
     p_old = S.SolveParams(ppqn=mf.ppqn, midi_bpm=mf.bpm0)
@@ -228,7 +228,7 @@ chk("travel_hi 不会把上界压到硬下限以下（荒唐值不至于让全�
 
 # 端到端：三首样本，阶梯 + travel_max=270 ⇒ 一格都不许超，且 meta 必须写上它
 for name in ("Automaton_Waltz", "FallenEra", "MemoryLocked"):
-    mf = load(os.path.join(ROOT, "samples", name + ".mid"))
+    mf = load(os.path.join(ROOT, "samples", "_external", name + ".mid"))
     ons = build_onsets(mf.tracks[0].notes, OnsetParams(merge_ms=30.0))
     p = S.SolveParams(ppqn=mf.ppqn, midi_bpm=mf.bpm0, aggressive_pick=True,
                       travel_min=30.0, travel_max=270.0)

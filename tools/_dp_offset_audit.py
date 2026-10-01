@@ -33,7 +33,7 @@ CASES = ("FallenEra.mid", "Automaton_Waltz.mid", "MemoryLocked.mid")
 
 
 def baseline(smp: str):
-    m = M.load(os.path.join(ROOT, "samples", smp))
+    m = M.load(os.path.join(ROOT, "samples", "_external", smp))
     ons = O.build_onsets(m.tracks[0].notes, O.OnsetParams(merge_ms=30.0))
     p = S.SolveParams(ppqn=m.ppqn, midi_bpm=m.bpm0)
     ch = S.solve(ons, p)
@@ -129,7 +129,7 @@ def main() -> int:
           f"{'非零个数':>9}{'>1ms':>7}{'>20ms':>7}{'累计末':>10}")
     rows = []
     for smp in CASES:
-        if not os.path.exists(os.path.join(ROOT, "samples", smp)):
+        if not os.path.exists(os.path.join(ROOT, "samples", "_external", smp)):
             continue
         for mode in ("angle", "midspin"):
             r = audit(smp, mode)
@@ -142,7 +142,7 @@ def main() -> int:
     print("B. 预览：中旋把 `old2new` 指到折返格 X（而不是被吃掉 s 的原格）")
     print("=" * 100)
     for smp in CASES:
-        if not os.path.exists(os.path.join(ROOT, "samples", smp)):
+        if not os.path.exists(os.path.join(ROOT, "samples", "_external", smp)):
             continue
         f = midspin_fix_preview(smp)
         print(f"  {smp:<22} 最大 |误差| = {f['max']:.3f} ms   >1ms 的个数 = {f['n_gt1ms']}")
@@ -152,7 +152,7 @@ def main() -> int:
     print("=" * 100)
     tot_bad = 0
     for smp in CASES:
-        if not os.path.exists(os.path.join(ROOT, "samples", smp)):
+        if not os.path.exists(os.path.join(ROOT, "samples", "_external", smp)):
             continue
         c = closure(smp)
         tot_bad += c["n_bad"]

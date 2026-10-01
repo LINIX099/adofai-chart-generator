@@ -24,7 +24,7 @@ from sidecar.session import Session                          # noqa: E402
 
 def main() -> int:
     path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        ROOT, "samples", "MemoryLocked.mid")
+        ROOT, "samples", "_external", "MemoryLocked.mid")
     s = Session()
     info = s.load(path)
     st = SC.defaults()

@@ -209,19 +209,31 @@ class Session:
 
         ★ 2026-10：**时间戳 JSON** 也进这个菜单（靠**内容嗅探**，避免把 `samples/`
         里任意一个 `.json` 都摆上来）—— 用户一眼就能看到我们支持这个格式。
+
+        ★★ 2026-10：**`samples/audio/` 也扫**。以前只扫顶层，而顶层原来摆的是
+        `FallenEra.mid` / `Automaton_Waltz.mid` / `MemoryLocked.mid` ——
+        **那三首是第三方音乐**，已按 `samples/README.md` 的规矩挪进 `samples/_external/`
+        （**不随包分发**）。于是顶层只剩自制素材，菜单会变空 ⇒ 把自制的那几份
+        （`audio/doublepress_demo_*.{mid,ogg}`）一起列进来。
+        `_external/` **不扫**（`samples/` 下只在已知的子目录里找，不做递归）。
         """
         base = os.path.join(self.root, "samples")
         if not os.path.isdir(base):
             return []
         exts = (".mid", ".midi") + AUDIO_EXTS
         out = []
-        for f in sorted(os.listdir(base)):
-            p = os.path.join(base, f)
-            low = f.lower()
-            if low.endswith(exts):
-                out.append(p)
-            elif low.endswith(STEM_EXTS) and stem_mod.looks_like_stem_json_file(p):
-                out.append(p)
+        dirs = [base] + [d for d in (os.path.join(base, "audio"),)
+                         if os.path.isdir(d)]
+        for d0 in dirs:
+            for f in sorted(os.listdir(d0)):
+                p = os.path.join(d0, f)
+                if not os.path.isfile(p):
+                    continue
+                low = f.lower()
+                if low.endswith(exts):
+                    out.append(p)
+                elif low.endswith(STEM_EXTS) and stem_mod.looks_like_stem_json_file(p):
+                    out.append(p)
         return out
 
     def load(self, path: str, progress=None, should_cancel=None) -> dict:

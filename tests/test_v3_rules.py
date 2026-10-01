@@ -13,7 +13,7 @@ from core import midi as midi_mod                     # noqa: E402
 from core import onsets as onsets_mod                 # noqa: E402
 from core import solve as solve_mod                   # noqa: E402
 
-SAMPLES = os.path.join(_ROOT, "samples")
+SAMPLES = os.path.join(_ROOT, "samples", "_external")   # 第三方，不随包
 FAIL = []
 
 

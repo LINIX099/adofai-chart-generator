@@ -6,7 +6,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from core import midi as midi_mod, onsets as onsets_mod, solve as solve_mod  # noqa: E402
 
-S = os.path.join(ROOT, "samples")
+S = os.path.join(ROOT, "samples", "_external")
 
 for fn in ("Automaton_Waltz.mid", "FallenEra.mid", "MemoryLocked.mid"):
     m = midi_mod.load(os.path.join(S, fn))

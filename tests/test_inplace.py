@@ -120,7 +120,7 @@ def samples():
     print("[3] 端到端：三样本 —— 原地打转↓ · 直线率↑ · 时序/规则全绿")
     tot_old = tot_new = 0.0
     for name in ("FallenEra", "Automaton_Waltz", "MemoryLocked"):
-        mf = load(os.path.join(ROOT, "samples", name + ".mid"))
+        mf = load(os.path.join(ROOT, "samples", "_external", name + ".mid"))
         ons = build_onsets(mf.tracks[0].notes, OnsetParams(merge_ms=30.0))
         base = dict(ppqn=mf.ppqn, midi_bpm=mf.bpm0)
         ch_old = S.solve(ons, S.SolveParams(**base, inplace_waste=False))

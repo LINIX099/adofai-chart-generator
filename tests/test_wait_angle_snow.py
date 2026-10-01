@@ -82,7 +82,7 @@ def min_angle_takes_effect():
     print("=" * 84)
     print("③ 最小角度 travel_min 全线生效")
     print("=" * 84)
-    m = midi_mod.load(os.path.join(_ROOT, "samples", "Automaton_Waltz.mid"))
+    m = midi_mod.load(os.path.join(_ROOT, "samples", "_external", "Automaton_Waltz.mid"))
     ons = build_onsets(m.tracks[0].notes, OnsetParams(merge_ms=30.0))
     for tmin in (20.0, 45.0, 60.0):
         p = solve_mod.SolveParams(ppqn=m.ppqn, midi_bpm=m.bpm0, travel_min=tmin)
@@ -111,7 +111,7 @@ def snowflake_geometry_parity():
     print("② 雪花：不再偷挪 Twirl，反解器与模型逐格一致")
     print("=" * 84)
     for name in SAMPLES:
-        m = midi_mod.load(os.path.join(_ROOT, "samples", name + ".mid"))
+        m = midi_mod.load(os.path.join(_ROOT, "samples", "_external", name + ".mid"))
         ons = build_onsets(m.tracks[0].notes, OnsetParams(merge_ms=30.0))
         p = solve_mod.SolveParams(ppqn=m.ppqn, midi_bpm=m.bpm0, use_snowflake=True,
                                   snowflake_min_tiles=10, snowflake_full_tiles=48.0)
@@ -147,7 +147,7 @@ def snowflake_params_are_live():
     print("②b 雪花参数真的能用（形状 / 最少步数 / 紧凑 / 等间隔容差）")
     print("=" * 84)
     from core import snowflake as SN
-    m = midi_mod.load(os.path.join(_ROOT, "samples", "Automaton_Waltz.mid"))
+    m = midi_mod.load(os.path.join(_ROOT, "samples", "_external", "Automaton_Waltz.mid"))
     ons = build_onsets(m.tracks[0].notes, OnsetParams(merge_ms=30.0))
     seen = {}
     for shape in ("uniform", "step", "zigzag"):

@@ -243,19 +243,29 @@ def main():
                 js = (
                     "(async()=>{const d=window.__dsh;const s=await d.api.samples();"
                     "if(!s||!s.abs||!s.abs.length) throw new Error('samples 空：'+JSON.stringify(s));"
-                    "await d.load(s.abs.find(p=>/MemoryLocked/.test(p)));"
+                    "await d.load(s.abs.find(p=>/doublepress_demo_120\\.mid$/.test(p))"
+                    "||s.abs[0]);"
                     "await new Promise(r=>setTimeout(r,900));"
                     "const tr=(d.loadInfo()||{}).tracks||[];"
                     "if(!tr.length) throw new Error('载入后没有音轨');"
                     "const b=tr.slice().sort((x,y)=>((y.notes||[]).length||0)"
                     "-((x.notes||[]).length||0))[0];"
                     "d.state.tracks_checked=[b.index];await d.rebuild();"
-                    "const r=d.lastResult();"
+                    # ★★ 2026-10：`rebuild()` 之后**要等一下**再读 `lastResult()`。
+                    #   实测刚 `await d.rebuild()` 就取，有时拿到的是上一轮的空壳
+                    #   （`n_onsets` / `n_floors` 全是 `undefined`），
+                    #   而导出那一步却是好的 —— 看起来像「载示例失败」，其实是取样早了。
+                    "await new Promise(r=>setTimeout(r,800));"
+                    "const r=d.lastResult()||{};const p=d.payload()||{};"
+                    "const n=(typeof r.n_onsets==='number')?r.n_onsets:"
+                    "Math.max(0,(p.floors||[]).length-1);"
+                    "const fl=(typeof r.n_floors==='number')"
+                    "?r.n_floors:(p.floors||[]).length;"
                     # ★ 路径只 json.dumps 一次（JSON 字符串就是合法的 JS 字面量）；
                     #   再手工 replace 一层会把反斜杠写成两个（真机踩过）。
                     "const e=await d.api.exportTo(d.state, %s);"
-                    "return JSON.stringify({n:r.n_onsets,floors:r.n_floors,ok:e.ok,"
-                    "verify:e.verify_ok,audio:e.audio,dir:e.dir});})()"
+                    "return JSON.stringify({n:n,floors:fl,ok:e.ok,verify:e.verify_ok,"
+                    "audio:e.audio,dir:e.dir});})()"
                     % json.dumps(outdir)
                 )
                 txt = _cdp_eval(js, 180)

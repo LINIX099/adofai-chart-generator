@@ -6,6 +6,57 @@
 > （`v0.1` 定版快照、`v0.2`/`v0.3` 代码史）与**用户明确说过的号**（`v0.4`）才保留号位。
 > 交付版本号一律以 `app/package.json` 与 `GET /api/health` 为准。
 
+## ★ 发布 **`0.5.0`**（正式版 · GitHub Release）（2026-10）
+
+> 用户 2026-10：「**可以考虑发个 V0.5.0 的正式版 release**」
+
+**版本号 = 用户点名的 `0.5.0`**（去掉 `-preview-bugfix` 后缀）。
+真源仍是仓库根 `VERSION`；`app/package.json` / `app/package-lock.json` /
+`packaging/使用说明.txt` 跟着走，`GET /api/health` 读的就是它。
+
+| | |
+|---|---|
+| 产物 | `build/portable/ADOFAI-ChartGenerator-0.5.0-win-x64.zip` = **273.9 MB** |
+| 标签 | `v0.5.0` |
+| 页面 | <https://github.com/LINIX099/adofai-chart-generator/releases/tag/v0.5.0> |
+
+### ★★ 发布前发现并修掉一个**合规问题**
+
+`samples/README.md` 自己写着：
+
+> `FallenEra.mid`、`Automaton_Waltz.mid`、`MemoryLocked.mid`，以及 `FallenEra_MaySnow.ogg` 等
+> —— **都是第三方音乐作品，不适合随源码再分发**，因此没有打进这个包。
+
+**但打包配置把它们塞进去了。** 实测上一版便携包里躺着 **12.4 MB**
+（`resources/samples/`）：三首别人曲子的 MIDI + `FallenEra_orig.ogg` +
+`FallenEra_MaySnow.ogg` + `_slice20.wav` + 别人的 `level.adofai`。
+
+修法（**三道**，不只挪文件）：
+
+1. 第三方素材全部挪进 `samples/_external/`（`sidecar.session.samples()` 的「示例▾」菜单
+   **只扫顶层、不递归** ⇒ 自动从菜单消失，不占界面）
+2. **`app/package.json` 的 `extraResources` 加硬闸**：`"!**/_external/**"`
+   —— 只挪目录不够，闸必须在打包配置里，否则下次有人挪回来又漏
+3. `app/e2e.js` 的雪花那一段改指 `samples/_external/Automaton_Waltz.mid`；
+   `samples/README.md` 重写（一、二节分开讲「随包分发」与「第三方，不随包」）
+
+**验收**：新包 `resources/samples/` = **2.74 MB**（只有自制素材）；
+全 zip 搜 `FallenEra` / `Automaton_Waltz` / `MemoryLocked` / `_slice20` = **各 0 个**；
+包内 `resources/VERSION` = `0.5.0`。
+
+### 顺手修
+
+`patterns/backup.adofai`（编辑器自动备份）**以前被跟踪着**，而 `patterns/README.md`
+自己写着「忽略」⇒ 加进 `.gitignore` 并从跟踪里移除。
+
+### 这一版包含
+
+- **（new）镜头调度「呼吸」正式接线**（左栏 ⑤e，参数默认收起，点选项卡下方三角形展开）
+- 两个速度档旋钮 `slow_speed_penalty` / `speed_min_run`（默认值 ⇒ 产物逐字节不变）
+- README 重写 + **「给 Agent 的拟合指南」**（提示词 · CLI 的 10 个坑 · 「像人类写的」判据）
+- 仓库瘦身：`tools/` 248→89 · `docs/` 80→69
+- 全仓库清掉开发机说辞与硬编码路径
+
 ## `docs/` 瘦身：80 → 69（2026-10）
 
 > 用户 2026-10（原话）：

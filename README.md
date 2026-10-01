@@ -9,7 +9,7 @@ cd app && npm start                # 新前端：Electron + Python sidecar（推
 python tools/gen_from_source.py …  # 无头全流程（**给 agent / 批处理用这条**）
 ```
 
-**版本** `0.5.0-preview-bugfix`（见 `VERSION` · `CHANGELOG.md`）。
+**版本** `0.5.0`（见 `VERSION` · `CHANGELOG.md`）。
 许可 Apache-2.0（`LICENSE` / `NOTICE` / `THIRD-PARTY.md`）。
 
 > **仓库里只有源码 / 文档 / 测试。**

@@ -248,7 +248,7 @@ module.exports = async function run(win) {
   await js('window.__dsh.setParam("twirl_index", 0)');
 
   await js(`window.__dsh.load(${JSON.stringify(
-    path.join(__dirname, '..', 'samples', 'Automaton_Waltz.mid'))})`);
+    path.join(__dirname, '..', 'samples', '_external', 'Automaton_Waltz.mid'))})`);
   await sleep(600);
   await js('window.__dsh.setParam("use_snowflake", true)');
   await js('window.__dsh.setParam("snowflake_min_tiles", 4)');

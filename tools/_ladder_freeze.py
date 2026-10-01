@@ -71,7 +71,7 @@ def digest(name: str, kw: dict) -> str:
     settings），也就是写到 `.adofai` 里的全部内容 —— 任何一格 travel / bpm /
     Twirl / PositionTrack 变了都会变。
     """
-    mf = load(os.path.join(ROOT, "samples", name + ".mid"))
+    mf = load(os.path.join(ROOT, "samples", "_external", name + ".mid"))
     ons = build_onsets(mf.tracks[0].notes, OnsetParams(merge_ms=30.0))
     p = S.SolveParams(ppqn=mf.ppqn, midi_bpm=mf.bpm0, **kw)
     assert p.aggressive_pick is False, "冻结基线时开关必须是关的"

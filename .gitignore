@@ -87,3 +87,5 @@ desktop.ini
 _scratch_*
 _repo_audit.py
 _probe_*.ps1
+# `patterns/` 里的**编辑器自动备份**（`patterns/README.md` 自己就说「忽略」）
+/patterns/backup.adofai

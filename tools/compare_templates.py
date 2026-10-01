@@ -36,7 +36,7 @@ def run(path, track=-1, use_tpl=True):
 
 def main():
     for fn in ("Automaton_Waltz.mid", "FallenEra.mid", "MemoryLocked.mid"):
-        path = os.path.join(ROOT, "samples", fn)
+        path = os.path.join(ROOT, "samples", "_external", fn)
         print("=" * 88)
         print(fn)
         for use in (False, True):

@@ -35,7 +35,7 @@ def check(cond, msg):
 
 def _solve(sample="FallenEra.mid", n_targets=1, **kw):
     from core import midi as M, onsets as O, solve as S
-    m = M.load(os.path.join(_ROOT, "samples", sample))
+    m = M.load(os.path.join(_ROOT, "samples", "_external", sample))
     ons = O.build_onsets(m.tracks[0].notes, O.OnsetParams(merge_ms=30.0))
     p = S.SolveParams(ppqn=m.ppqn, midi_bpm=m.bpm0, **kw)
     return S.solve(ons, p), S, ons
@@ -98,7 +98,7 @@ def fixed_table():
           "固定表的 90° @840 ⇒ Δ {:.2f}ms **超** 25ms 预算 ⇒ 固定表下预算不当判据"
           .format(DA.skew_ms(90.0, 840)))
 
-    m = M.load(os.path.join(_ROOT, "samples", "FallenEra.mid"))
+    m = M.load(os.path.join(_ROOT, "samples", "_external", "FallenEra.mid"))
     ons = O.build_onsets(m.tracks[0].notes, O.OnsetParams(merge_ms=30.0))
     ch = S.solve(ons, S.SolveParams(ppqn=m.ppqn, midi_bpm=m.bpm0))
     tc = S.times_from_chart(ch)
@@ -321,7 +321,7 @@ def reserve_slots():
     print("G. ★ a：预留槽位（docs/31 §5.2）—— 钉死速度档 + 图形让路")
     print("=" * 78)
     from core import midi as M, onsets as O, solve as S
-    m = M.load(os.path.join(_ROOT, "samples", "FallenEra.mid"))
+    m = M.load(os.path.join(_ROOT, "samples", "_external", "FallenEra.mid"))
     ons = O.build_onsets(m.tracks[0].notes, O.OnsetParams(merge_ms=30.0))
 
     def build(**kw):
@@ -618,7 +618,7 @@ def setspeed_first_tile():
     tot_used = 0
     for sample, main in (("FallenEra.mid", 0), ("Automaton_Waltz.mid", 0),
                          ("MemoryLocked.mid", 0)):
-        m = M.load(os.path.join(_ROOT, "samples", sample))
+        m = M.load(os.path.join(_ROOT, "samples", "_external", sample))
         ons = O.build_onsets(m.tracks[main].notes, O.OnsetParams(merge_ms=30.0))
         ch = S.solve(ons, S.SolveParams(ppqn=m.ppqn, midi_bpm=m.bpm0))
         t0 = S.times_from_chart(ch)

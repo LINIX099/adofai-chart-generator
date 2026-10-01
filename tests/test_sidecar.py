@@ -1260,7 +1260,7 @@ def main() -> int:                                            # noqa: C901
         st18m["aggressive_fit"] = False
         st18m["fit_tol_ms"] = 0.0
         i18m = post(base + "/api/load",
-                    {"path": os.path.join(ROOT, "samples", "MemoryLocked.mid")})
+                    {"path": os.path.join(ROOT, "samples", "_external", "MemoryLocked.mid")})
         st18m["tracks_checked"] = list(i18m.get("default_tracks_checked") or [0])
         r18b5 = post(base + "/api/rebuild", {"state": st18m})
         _d5 = r18b5.get("denoise") or {}
